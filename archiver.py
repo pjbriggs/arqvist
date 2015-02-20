@@ -26,13 +26,14 @@ class DataDir:
     """
     Class for interrogating and manipulating an NGS data dir
 
-    *** THINKS
+    TODO:
     - add a subdirectory to cache checksums etc
-    - store data about platform, year
+    - store data about platform, year?
 
     """
     def __init__(self,dirn):
         """
+        Create a new DataDir instance
         """
         self._dirn = os.path.abspath(dirn)
 
@@ -171,6 +172,17 @@ def find_primary_data(datadir):
                                                      'fastq')):
         print "%s" % os.path.relpath(f,datadir)
 
+def find_duplicates(*dirs):
+    """
+    Locate duplicated files across multiple dirs
+
+    TODO
+    - not implemented; use something like duff?
+    - also needs to deal with comparing content of compressed
+      files with uncompressed files?
+    """
+    raise NotImplementedError("duplicates command not implemented")
+
 #######################################################################
 # Main program
 #######################################################################
@@ -240,7 +252,7 @@ if __name__ == '__main__':
     elif cmd == 'primary_data':
         find_primary_data(args[0])
     elif cmd == 'duplicates':
-        raise NotImplementedError("duplicates command not implemented")
+        find_duplicates(*args)
     elif cmd == 'compress':
         if len(args) < 2:
             sys.stderr.write("Need to supply a data dir and at least "
