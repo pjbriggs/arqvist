@@ -29,6 +29,9 @@ class DataDir:
     TODO:
     - add a subdirectory to cache checksums etc
     - store data about platform, year?
+    - store and update arbitrary metadata, and
+      dump this to a README or other info file for
+      curation
 
     """
     def __init__(self,dirn):
