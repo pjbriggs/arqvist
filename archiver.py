@@ -12,11 +12,13 @@ Archiving and curation helper utility for NGS data
 import os
 import sys
 import logging
+import bz2
+import bcftbx.utils as utils
+import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
-from bcftbx.utils import strip_ext
 from auto_process_ngs import applications
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 #######################################################################
 # Classes
@@ -80,7 +82,22 @@ class DataDir:
     def info(self):
         """
         """
-        print "Dir: %s" % self._dirn
+        print "Dir   : %s" % self._dirn
+        # Report total size
+        size = get_size(self._dirn)
+        print "Size  : %s (%s)" % (utils.format_file_size(size),
+                                 utils.format_file_size(size,'K'))
+        # Get users and groups
+        users = []
+        groups = []
+        for f in self.walk():
+            path = utils.PathInfo(f)
+            if path.user not in users:
+                users.append(path.user)
+            if path.group not in groups:
+                groups.append(path.group)
+        print "Users : %s" % ', '.join([str(u) for u in users])
+        print "Groups: %s" % ', '.join([str(g) for g in groups])
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
         """Copy (rsync) data dir to another location
@@ -114,6 +131,32 @@ def get_file_extensions(filen):
     if len(file_parts) > 1:
         ext = file_parts[-1]
     return (ext,compression)
+
+def get_size(f,block_size=1):
+    """Return size of a file or directory
+
+    By default returns file sizes in bytes (block_size of 1);
+    if a file is supplied then returns the size of the file,
+    if a directory is supplied then returns the total size of
+    all files in the directory (and its subdirectories).
+    
+    """
+    if os.path.isfile(f):
+        size = os.lstat(f).st_size
+    else:
+        size = os.lstat(f).st_size
+        for dirpath,dirnames,filenames in os.walk(f):
+            for d in dirnames:
+                size_incr = os.lstat(os.path.join(dirpath,d)).st_size
+                size += size_incr
+                ##print "%s: %d" % (os.path.join(dirpath,d),size_incr)
+            for f in filenames:
+                size_incr = get_size(os.path.join(dirpath,f),block_size=block_size)
+                size += size_incr
+                ##print "%s: %d" % (os.path.join(dirpath,f),size_incr)
+    # Return number of blocks, rounded
+    # up or down to nearest integer
+    return int(round(float(size)/float(block_size)))
 
 def compress_files(datadir,extensions,dry_run=False):
     """
@@ -160,11 +203,27 @@ def find_related(datadir):
     - functionality not implemented, should be just 'symlinks'?
 
     """
+    external_dirs = []
     for f in DataDir(datadir).walk():
-        if not os.path.islink(f):
+        # Test if it's a link
+        try:
+            ln = utils.Symlink(f)
+        except Exception:
+            # Not a symlink
             continue
-        target = os.readlink(f)
-        print target
+        resolved_target = ln.resolve_target()
+        if os.path.relpath(resolved_target,datadir).startswith('..'):
+            if os.path.isdir(resolved_target):
+                d = resolved_target
+            else:
+                d = os.path.dirname(resolved_target)
+            if d not in external_dirs:
+                external_dirs.append(d)
+    if external_dirs:
+        for d in external_dirs:
+            print d
+    else:
+        print "No related directories detected"
 
 def find_primary_data(datadir):
     """
@@ -173,7 +232,33 @@ def find_primary_data(datadir):
     for f in DataDir(datadir).list_files(extensions=('csfasta',
                                                      'qual',
                                                      'fastq')):
-        print "%s" % os.path.relpath(f,datadir)
+        if os.path.islink(f):
+            lnk=" *"
+        else:
+            lnk=''
+        print "%s%s" % (os.path.relpath(f,datadir),lnk)
+
+def find_symlinks(datadir):
+    """
+    Examine symlinks and find those pointing outside this dir
+
+    TODO:
+    - functionality not implemented, should be just 'symlinks'?
+
+    """
+    for f in DataDir(datadir).walk():
+        # Test if it's a link
+        try:
+            ln = utils.Symlink(f)
+        except Exception:
+            # Not a symlink
+            continue
+        resolved_target = ln.resolve_target()
+        external_target = os.path.relpath(resolved_target,datadir).startswith('..')
+        print "%s %s\n\t-> %s\n\t-> %s" % ('[E]' if external_target else '   ',
+                                           os.path.relpath(f,datadir),
+                                           ln.target,
+                                           resolved_target)
 
 def find_duplicates(*dirs):
     """
@@ -184,7 +269,40 @@ def find_duplicates(*dirs):
     - also needs to deal with comparing content of compressed
       files with uncompressed files?
     """
-    raise NotImplementedError("duplicates command not implemented")
+    # Generate MD5 checksums
+    checksums = {}
+    for d in dirs:
+        for f in DataDir(d).walk():
+            # Ignore links
+            if os.path.islink(f):
+                continue
+            # Check for compressed file
+            ext,compression = get_file_extensions(f)
+            if compression is None:
+                chksum = Md5sum.md5sum(f)
+            else:
+                if compression == 'bz2':
+                    fp = bz2.BZ2File(f)
+                    chksum = Md5sum.md5sum(f)
+                else:
+                    raise NotImplementedError("%s: duplicates command not yet "
+                                              "implemented for this type of "
+                                              "compression" % f)
+            # Store checksum info
+            if chksum not in checksums:
+                checksums[chksum] = []
+            checksums[chksum].append(f)
+    # Report checksums that have multiple entries
+    n_duplicates = 0
+    for chksum in checksums:
+        if len(checksums[chksum]) > 1:
+            print "%s\t%s" % (chksum,','.join(checksums[chksum]))
+            n_duplicates += 1
+    # Finished
+    if not n_duplicates:
+        print "No duplicates found"
+    else:
+        print "%d duplicated checksums identified" % (n_duplicates)
 
 #######################################################################
 # Main program
@@ -212,8 +330,13 @@ if __name__ == '__main__':
     #
     # List primary data
     p.add_command('primary_data',help="List primary data files",
-                  usage='%prog stage DIR',
+                  usage='%prog primary_data DIR',
                   description="List the primary data files found in DIR.")
+    #
+    # List symlinks
+    p.add_command('symlinks',help="List symlinks",
+                  usage='%prog symlinks DIR',
+                  description="List the symbolic links found in DIR.")
     #
     # Find duplicates
     p.add_command('duplicates',help="Find duplicated files",
@@ -254,6 +377,8 @@ if __name__ == '__main__':
         stage_data(args[0],args[1])
     elif cmd == 'primary_data':
         find_primary_data(args[0])
+    elif cmd == 'symlinks':
+        find_symlinks(args[0])
     elif cmd == 'duplicates':
         find_duplicates(*args)
     elif cmd == 'compress':
