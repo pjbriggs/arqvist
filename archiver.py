@@ -12,17 +12,36 @@ Archiving and curation helper utility for NGS data
 import os
 import sys
 import logging
+import itertools
 import bz2
 import bcftbx.utils as utils
 import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 #######################################################################
 # Classes
 #######################################################################
+
+class ArchiveFile(utils.PathInfo):
+    """
+    Class for storing information about a file
+
+    """
+    def __init__(self,filen):
+        """
+        Create and populate a new ArchiveFile instance
+        """
+        utils.PathInfo.__init__(self,filen)
+        self.size = os.lstat(filen).st_size
+        self.ext,self.compression = get_file_extensions(filen)
+        self.md5 = None
+        self.uncompressed_md5 = None
+
+    def __repr__(self):
+        return self.path
 
 class DataDir:
     """
@@ -41,6 +60,12 @@ class DataDir:
         Create a new DataDir instance
         """
         self._dirn = os.path.abspath(dirn)
+        self._files = []
+        for d in os.walk(self._dirn):
+            for f in d[1]:
+                self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
+            for f in d[2]:
+                self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
 
     @property
     def name(self):
@@ -64,38 +89,36 @@ class DataDir:
           Yields the name and full path for each file found.
           
         """
-        for d in os.walk(self._dirn):
-            for f in d[2]:
-                yield os.path.normpath(os.path.join(d[0],f))
+        for f in itertools.ifilter(lambda x: not x.is_dir,self._files):
+            yield f.path
 
     def list_files(self,extensions=None):
         """
-        Return a list of files
+        Return a list of files (optionally matching extensions)
         """
-        files = []
-        for f in self.walk():
-            ext,compression = get_file_extensions(f)
-            if ext in extensions:
-                files.append(f)
-        return files
+        return [f.path for f in itertools.ifilter(lambda x: not extensions or \
+                                                  x.ext in extensions,self._files)]
+
+    def list_symlinks(self):
+        """
+        Return a list of symlinks
+        """
+        return [f.path for f in itertools.ifilter(lambda x: x.is_link,self._files)]
 
     def info(self):
         """
         """
+        # Report total size, users etc
+        size = sum([f.size for f in self._files])
+        users = set([f.user for f in self._files])
+        groups = set([f.group for f in self._files])
+        nfiles = len(filter(lambda x: not x.is_dir,self._files))
+        compression = set([f.compression for f in self._files])
         print "Dir   : %s" % self._dirn
-        # Report total size
-        size = get_size(self._dirn)
         print "Size  : %s (%s)" % (utils.format_file_size(size),
-                                 utils.format_file_size(size,'K'))
-        # Get users and groups
-        users = []
-        groups = []
-        for f in self.walk():
-            path = utils.PathInfo(f)
-            if path.user not in users:
-                users.append(path.user)
-            if path.group not in groups:
-                groups.append(path.group)
+                                   utils.format_file_size(size,'K'))
+        print "Nfiles: %d" % nfiles
+        print "Compression type: %s" % ', '.join([str(c) for c in compression])
         print "Users : %s" % ', '.join([str(u) for u in users])
         print "Groups: %s" % ', '.join([str(g) for g in groups])
 
@@ -204,13 +227,8 @@ def find_related(datadir):
 
     """
     external_dirs = []
-    for f in DataDir(datadir).walk():
-        # Test if it's a link
-        try:
-            ln = utils.Symlink(f)
-        except Exception:
-            # Not a symlink
-            continue
+    for f in DataDir(datadir).list_symlinks():
+        ln = utils.Symlink(f)
         resolved_target = ln.resolve_target()
         if os.path.relpath(resolved_target,datadir).startswith('..'):
             if os.path.isdir(resolved_target):
@@ -246,13 +264,8 @@ def find_symlinks(datadir):
     - functionality not implemented, should be just 'symlinks'?
 
     """
-    for f in DataDir(datadir).walk():
-        # Test if it's a link
-        try:
-            ln = utils.Symlink(f)
-        except Exception:
-            # Not a symlink
-            continue
+    for f in DataDir(datadir).list_symlinks():
+        ln = utils.Symlink(f)
         resolved_target = ln.resolve_target()
         external_target = os.path.relpath(resolved_target,datadir).startswith('..')
         print "%s %s\n\t-> %s\n\t-> %s" % ('[E]' if external_target else '   ',
@@ -304,6 +317,16 @@ def find_duplicates(*dirs):
     else:
         print "%d duplicated checksums identified" % (n_duplicates)
 
+def find_tmp_files(datadir):
+    """
+    Report temporary files/directories
+
+    """
+    for f in DataDir(datadir).list_files():
+        if os.path.basename(f).count('tmp'):
+            print "%s\t%s" % (os.path.relpath(f,datadir),
+                              utils.format_file_size(get_size(f)))
+
 #######################################################################
 # Main program
 #######################################################################
@@ -344,6 +367,12 @@ if __name__ == '__main__':
                   description="Look for duplicated files across one or "
                   "more data directories")
     #
+    # Find duplicates
+    p.add_command('temp',help="Find temporary files & directories",
+                  usage='%prog temp DIR [DIR ...]',
+                  description="Look for temporary files and directories "
+                  "in DIR")
+    #
     # Compress files
     p.add_command('compress',help="Compress data files",
                   usage='%prog compress DIR EXT [EXT..]',
@@ -381,6 +410,8 @@ if __name__ == '__main__':
         find_symlinks(args[0])
     elif cmd == 'duplicates':
         find_duplicates(*args)
+    elif cmd == 'temp':
+        find_tmp_files(args[0])
     elif cmd == 'compress':
         if len(args) < 2:
             sys.stderr.write("Need to supply a data dir and at least "
