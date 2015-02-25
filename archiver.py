@@ -19,7 +19,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 #######################################################################
 # Classes
@@ -107,6 +107,7 @@ class DataDir:
 
     def info(self):
         """
+        Report information about the directory 
         """
         # Report total size, users etc
         size = sum([f.size for f in self._files])
@@ -180,6 +181,12 @@ def get_size(f,block_size=1):
     # Return number of blocks, rounded
     # up or down to nearest integer
     return int(round(float(size)/float(block_size)))
+
+def stage_data(datadir,staging_dir):
+    """
+    Make a staging copy of data dir
+    """
+    DataDir(datadir).copy_to(staging_dir)
 
 def compress_files(datadir,extensions,dry_run=False):
     """
@@ -322,10 +329,14 @@ def find_tmp_files(datadir):
     Report temporary files/directories
 
     """
+    total_size = 0
     for f in DataDir(datadir).list_files():
         if os.path.basename(f).count('tmp'):
+            size = get_size(f)
+            total_size += size
             print "%s\t%s" % (os.path.relpath(f,datadir),
-                              utils.format_file_size(get_size(f)))
+                              utils.format_file_size(size))
+    print "Total size: %s" % utils.format_file_size(total_size)
 
 #######################################################################
 # Main program
@@ -368,8 +379,8 @@ if __name__ == '__main__':
                   "more data directories")
     #
     # Find duplicates
-    p.add_command('temp',help="Find temporary files & directories",
-                  usage='%prog temp DIR [DIR ...]',
+    p.add_command('temp_files',help="Find temporary files & directories",
+                  usage='%prog temp_files DIR [DIR ...]',
                   description="Look for temporary files and directories "
                   "in DIR")
     #
@@ -410,7 +421,7 @@ if __name__ == '__main__':
         find_symlinks(args[0])
     elif cmd == 'duplicates':
         find_duplicates(*args)
-    elif cmd == 'temp':
+    elif cmd == 'temp_files':
         find_tmp_files(args[0])
     elif cmd == 'compress':
         if len(args) < 2:
