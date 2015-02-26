@@ -409,7 +409,7 @@ if __name__ == '__main__':
         if len(args) != 1:
             sys.stderr.write("Need to supply a data dir\n")
             sys.exit(1)
-        data = DataDir(args[0]).info()
+        DataDir(args[0]).info()
     elif cmd == 'stage':
         if len(args) != 2:
             sys.stderr.write("Need to supply a data dir and staging location\n")
