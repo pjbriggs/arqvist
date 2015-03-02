@@ -14,12 +14,13 @@ import sys
 import logging
 import itertools
 import bz2
+import gzip
 import bcftbx.utils as utils
 import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.4'
+__version__ = '0.0.5'
 
 #######################################################################
 # Classes
@@ -36,6 +37,7 @@ class ArchiveFile(utils.PathInfo):
         """
         utils.PathInfo.__init__(self,filen)
         self.size = os.lstat(filen).st_size
+        self.timestamp = self.mtime
         self.ext,self.compression = get_file_extensions(filen)
         self.md5 = None
         self.uncompressed_md5 = None
@@ -61,11 +63,99 @@ class DataDir:
         """
         self._dirn = os.path.abspath(dirn)
         self._files = []
+        # Collect list of files
         for d in os.walk(self._dirn):
+            if os.path.basename(d[0]) == '.archiver':
+                # Skip the cache directory
+                continue
             for f in d[1]:
+                if f == '.archiver':
+                    # Skip the cache directory
+                    continue
                 self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
             for f in d[2]:
                 self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
+        # Update cache (if present)
+        self.update_cache()
+
+    def __del__(self):
+        self.write_cache()
+
+    @property
+    def has_cache(self):
+        """
+        Check if a cache directory exists
+        """
+        cachedir = os.path.join(self._dirn,'.archiver')
+        return os.path.exists(cachedir)
+
+    def update_cache(self):
+        """
+        Update the cache of file information
+        """
+        # Convenience variable to save lookup time
+        dirn = self._dirn
+        # Cache directory
+        cachedir = os.path.join(dirn,'.archiver')
+        if not os.path.exists(cachedir):
+            return
+        # MD5 information
+        md5info = os.path.join(cachedir,'md5info')
+        data = {}
+        if os.path.exists(md5info):
+            # Read in cached data
+            with open(md5info,'r') as fp:
+                for line in fp:
+                    items = line.rstrip('\n').split('\t')
+                    data[items[0]] = {
+                        'size': int(items[1]),
+                        'time': float(items[2]),
+                        'md5' : items[3],
+                        'uncompressed_md5': items[4]
+                    }
+            # Verify and remove outdated items
+            # i.e. those which are missing, or where size or timestamp
+            # has changed
+            verified = {}
+            for filen in self._files:
+                path = filen.relpath(dirn)
+                ##print "*** %s ***" % path
+                try:
+                    f = data[path]
+                    ##print "Sizes:\t%s\t%s" % (filen.size,f['size'])
+                    ##print "Times:\t%s\t%s" % (filen.timestamp,f['time'])
+                    if f['size'] == filen.size and f['time'] == filen.timestamp:
+                        # Size and timestamp match
+                        filen.md5 = f['md5'] if f['md5'] else None
+                        filen.uncompressed_md5 = f['uncompressed_md5'] \
+                                                 if f['uncompressed_md5'] else None
+                    else:
+                        # Size or timestamp mismatch
+                        print "%s: size and/or timestamp differs from cache" % path
+                        del(data[path])
+                except KeyError:
+                    print "%s: missing from cache" % path
+
+    def write_cache(self):
+        """
+        Dump the cache of file information to disk
+        """
+        # Convenience variable to save lookup time
+        dirn = self._dirn
+        # Cache directory
+        cachedir = os.path.join(dirn,'.archiver')
+        if not os.path.exists(cachedir):
+            return
+        # MD5 information
+        md5info = os.path.join(cachedir,'md5info')
+        with open(md5info,'w') as fp:
+            for f in self._files:
+                fp.write("%s\t%s\t%s\t%s\t%s\n" % \
+                         (f.relpath(dirn),
+                          f.size,
+                          f.timestamp,
+                          (f.md5 if f.md5 else ''),
+                          (f.uncompressed_md5 if f.uncompressed_md5 else '')))
 
     @property
     def name(self):
@@ -92,6 +182,18 @@ class DataDir:
         for f in itertools.ifilter(lambda x: not x.is_dir,self._files):
             yield f.path
 
+    def init_cache(self):
+        """
+        Initialise a cache subdirectory
+        """
+        cachedir = os.path.join(self._dirn,'.archiver')
+        if os.path.exists(cachedir):
+            return
+        os.mkdir(cachedir)
+
+    def files(self):
+        return self._files
+
     def list_files(self,extensions=None):
         """
         Return a list of files (optionally matching extensions)
@@ -104,6 +206,32 @@ class DataDir:
         Return a list of symlinks
         """
         return [f.path for f in itertools.ifilter(lambda x: x.is_link,self._files)]
+
+    def md5sums(self):
+        """
+        Generate MD5sums
+        """
+        for f in self._files:
+            if f.is_link or f.is_dir:
+                # Ignore links or directories
+                continue
+            if f.md5 is None:
+                # Generate MD5 sum
+                f.md5 = Md5sum.md5sum(f.path)
+            if f.uncompressed_md5 is None:
+                # Generate MD5 for uncompressed contents
+                if f.compression is None:
+                    f.uncompressed_md5 = f.md5
+                elif f.compression == 'bz2':
+                    fp = bz2.BZ2File(f.path,'r')
+                    f.uncompressed_md5 = Md5sum.md5sum(fp)
+                elif f.compression == 'gz':
+                    fp = gzip.GzipFile(f.path,'rb')
+                    f.uncompressed_md5 = Md5sum.md5sum(fp)
+                else:
+                    raise NotImplementedError("%s: md5sums not implemented for "
+                                              "compression type" % f)
+                
 
     def info(self):
         """
@@ -122,6 +250,7 @@ class DataDir:
         print "Compression type: %s" % ', '.join([str(c) for c in compression])
         print "Users : %s" % ', '.join([str(u) for u in users])
         print "Groups: %s" % ', '.join([str(g) for g in groups])
+        print "Has cache?: %s" % ('yes' if self.has_cache else 'no')
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
         """Copy (rsync) data dir to another location
@@ -280,6 +409,11 @@ def find_symlinks(datadir):
                                            ln.target,
                                            resolved_target)
 
+def find_md5sums(datadir):
+    """
+    """
+    DataDir(datadir).md5sums()
+
 def find_duplicates(*dirs):
     """
     Locate duplicated files across multiple dirs
@@ -289,29 +423,22 @@ def find_duplicates(*dirs):
     - also needs to deal with comparing content of compressed
       files with uncompressed files?
     """
-    # Generate MD5 checksums
+    # Look for duplicated MD5 checksums
     checksums = {}
     for d in dirs:
-        for f in DataDir(d).walk():
-            # Ignore links
-            if os.path.islink(f):
+        dd = DataDir(d)
+        # Generate Md5 checksums
+        print "Acquiring MD5 sums for %s" % dd.path
+        dd.md5sums()
+        for f in dd.files():
+            if f.is_link or f.is_dir:
+                # Skip links and directories
                 continue
-            # Check for compressed file
-            ext,compression = get_file_extensions(f)
-            if compression is None:
-                chksum = Md5sum.md5sum(f)
-            else:
-                if compression == 'bz2':
-                    fp = bz2.BZ2File(f)
-                    chksum = Md5sum.md5sum(f)
-                else:
-                    raise NotImplementedError("%s: duplicates command not yet "
-                                              "implemented for this type of "
-                                              "compression" % f)
+            chksum = f.uncompressed_md5
             # Store checksum info
             if chksum not in checksums:
                 checksums[chksum] = []
-            checksums[chksum].append(f)
+            checksums[chksum].append(f.path)
     # Report checksums that have multiple entries
     n_duplicates = 0
     for chksum in checksums:
@@ -362,6 +489,13 @@ if __name__ == '__main__':
                   description="Copy DIR to STAGING_DIR and set up for "
                   "archiving and curation.")
     #
+    # Initialise a cache subdirectory
+    p.add_command('init_cache',help="Initialise a cache subdirectory",
+                  usage='%prog init_cache DIR',
+                  description="Create a cache subdirectory under DIR "
+                  "(if one doesn't already exist) and use this to store "
+                  "information such as MD5 sums for quick lookup.")
+    #
     # List primary data
     p.add_command('primary_data',help="List primary data files",
                   usage='%prog primary_data DIR',
@@ -371,6 +505,13 @@ if __name__ == '__main__':
     p.add_command('symlinks',help="List symlinks",
                   usage='%prog symlinks DIR',
                   description="List the symbolic links found in DIR.")
+    #
+    # Md5sums
+    p.add_command('md5sums',help="Generate MD5 checksums",
+                  usage='%prog md5sums DIR',
+                  description="Generate MD5 checksums for all files "
+                  "in DIR. Symlinks are not followed. If a file is "
+                  "compressed then checksums are calculated for")
     #
     # Find duplicates
     p.add_command('duplicates',help="Find duplicated files",
@@ -415,10 +556,14 @@ if __name__ == '__main__':
             sys.stderr.write("Need to supply a data dir and staging location\n")
             sys.exit(1)
         stage_data(args[0],args[1])
+    elif cmd == 'init_cache':
+        DataDir(args[0]).init_cache()
     elif cmd == 'primary_data':
         find_primary_data(args[0])
     elif cmd == 'symlinks':
         find_symlinks(args[0])
+    elif cmd == 'md5sums':
+        find_md5sums(args[0])
     elif cmd == 'duplicates':
         find_duplicates(*args)
     elif cmd == 'temp_files':
