@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 
 #######################################################################
 # Classes
@@ -41,6 +41,13 @@ class ArchiveFile(utils.PathInfo):
         self.ext,self.compression = get_file_extensions(filen)
         self.md5 = None
         self.uncompressed_md5 = None
+
+    @property
+    def basename(self):
+        """
+        Return the basename of the file path
+        """
+        return os.path.basename(self.path)
 
     def __repr__(self):
         return self.path
@@ -220,6 +227,13 @@ class DataDir:
         """
         return [f.path for f in itertools.ifilter(lambda x: x.is_link,self._files)]
 
+    def list_temp(self):
+        """
+        Return a list of temporary files/directories
+        """
+        return [f.path for f in itertools.ifilter(lambda x: bool(x.basename.count('tmp')),
+                                                  self._files)]
+
     def md5sums(self):
         """
         Generate MD5sums
@@ -244,7 +258,17 @@ class DataDir:
                 else:
                     raise NotImplementedError("%s: md5sums not implemented for "
                                               "compression type" % f)
-                
+
+    def set_permissions(self,mode=None,group=None):
+        """
+        Set permissions and group ownership on files
+        """
+        if group:
+            gid = utils.get_gid_from_group(group)
+            print "Group %s = %s" % (group,gid)
+        for f in self._files:
+            f.chown(group=gid)
+            os.system('chmod %s %s' % (mode,f.path))
 
     def info(self):
         """
@@ -269,7 +293,7 @@ class DataDir:
         print "Dir   : %s" % self._dirn
         print "Size  : %s (%s)" % (utils.format_file_size(size),
                                    utils.format_file_size(size,'K'))
-        print "Nfiles: %d" % nfiles
+        print "#files: %d" % nfiles
         print "Compression types: %s" % ', '.join([str(c) for c in compression])
         print "Users : %s" % ', '.join([str(u) for u in users])
         print "Groups: %s" % ', '.join([str(g) for g in groups])
@@ -283,7 +307,8 @@ class DataDir:
         print "- unreadable by owner: %s" % ('yes' if has_unreadable else 'no')
         print "- unreadable by group: %s" % ('yes' if has_group_unreadable else 'no')
         print "- unwritable by group: %s" % ('yes' if has_group_unwritable else 'no')
-        print "Has cache?: %s" % ('yes' if self.has_cache else 'no')
+        print "#Temp files: %d" % len(self.list_temp())
+        print "Has cache: %s" % ('yes' if self.has_cache else 'no')
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
         """Copy (rsync) data dir to another location
@@ -489,14 +514,18 @@ def find_tmp_files(datadir):
     Report temporary files/directories
 
     """
+    nfiles = 0
     total_size = 0
-    for f in DataDir(datadir).list_files():
-        if os.path.basename(f).count('tmp'):
-            size = get_size(f)
-            total_size += size
-            print "%s\t%s" % (os.path.relpath(f,datadir),
-                              utils.format_file_size(size))
-    print "Total size: %s" % utils.format_file_size(total_size)
+    for f in DataDir(datadir).list_temp():
+        size = get_size(f)
+        total_size += size
+        nfiles += 1
+        print "%s\t%s" % (os.path.relpath(f,datadir),
+                          utils.format_file_size(size))
+    else:
+        print "None found"
+        return
+    print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
 
 def list_files(datadir,extensions=None,owners=None,groups=None,compression=None):
     """
@@ -541,8 +570,8 @@ if __name__ == '__main__':
     # List files
     p.add_command('list_files',help="List files filtered by various criteria",
                   usage='%prog list_files OPTIONS DIR',
-                  description="List files filter by criteria specified by "
-                  "one or more OPTIONS.")
+                  description="List files under DIR filtered by criteria "
+                  "specified by one or more OPTIONS.")
     p.parser_for('list_files').add_option('--extensions',action='store',
                                           dest='extensions',default=None,
                                           help="List files with matching "
@@ -587,7 +616,28 @@ if __name__ == '__main__':
     p.add_command('temp_files',help="Find temporary files & directories",
                   usage='%prog temp_files DIR [DIR ...]',
                   description="Look for temporary files and directories "
-                  "in DIR")
+                  "in DIR.")
+    #
+    # Look for related directories
+    p.add_command('related',help="Locate related data directories",
+                  usage='%prog related DIR SEARCH_DIR [SEARCH_DIR ...]',
+                  description="Look for related directories under one "
+                  "or more search directories.")
+    #
+    # Set permissions
+    p.add_command('set_permissions',help="Set permissions and ownership",
+                  usage='%prog set_permissions OPTIONS DIR',
+                  description="Set the permissions and ownership of DIR "
+                  "according to the supplied options.")
+    p.parser_for('set_permissions').add_option('--chmod',action='store',
+                                               dest='mode',default=None,
+                                               help="Set file permissions on "
+                                               "files to those specified by "
+                                               "MODE")
+    p.parser_for('set_permissions').add_option('--group',action='store',
+                                               dest='group',default=None,
+                                               help="Set group ownership on "
+                                               "files to GROUP")
     #
     # Compress files
     p.add_command('compress',help="Compress data files",
@@ -598,12 +648,6 @@ if __name__ == '__main__':
                                         dest='dry_run',default=False,
                                         help="Report actions but don't "
                                         "perform them")
-    #
-    # Look for related directories
-    p.add_command('related',help="Locate related data directories",
-                  usage='%prog related DIR SEARCH_DIR [SEARCH_DIR ...]',
-                  description="Look for related directories under one "
-                  "or more search directories")
     # Process command line
     cmd,options,args = p.parse_args()
 
@@ -642,6 +686,9 @@ if __name__ == '__main__':
         find_duplicates(*args)
     elif cmd == 'temp_files':
         find_tmp_files(args[0])
+    elif cmd == 'set_permissions':
+        DataDir(args[0]).set_permissions(mode=options.mode,
+                                         group=options.group)
     elif cmd == 'compress':
         if len(args) < 2:
             sys.stderr.write("Need to supply a data dir and at least "
