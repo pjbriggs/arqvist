@@ -314,12 +314,14 @@ class DataDir:
         for subdir in top_level:
             subdir_size = os.path.join(self._dirn,subdir)
             subdir_files = self.files(subdir=subdir)
+            subdir_users = set([f.user for f in subdir_files])
             extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext in NGS_FILE_TYPES,
                                                     subdir_files)])
-            print "- %s/\t%d\t%s\t%s" % (subdir,
-                                         len(subdir_files),
-                                         utils.format_file_size(get_size(subdir_size)),
-                                         ','.join(extensions))
+            print "- %s/\t%d\t%s\t%s\t%s" % (subdir,
+                                             len(subdir_files),
+                                             utils.format_file_size(get_size(subdir_size)),
+                                             ','.join(extensions),
+                                             subdir_users)
         # File permissions
         print "File permissions:"
         print "- unreadable by owner: %s" % ('yes' if has_unreadable else 'no')
