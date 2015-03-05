@@ -22,7 +22,17 @@ from auto_process_ngs import applications
 
 __version__ = '0.0.10'
 
-NGS_FILE_TYPES = ('csfasta','qual','fastq','gff','gff3','sam','bam','bed','bw')
+NGS_FILE_TYPES = ('fa',
+                  'csfasta',
+                  'qual',
+                  'fastq',
+                  'gff',
+                  'gff3',
+                  'gtf',
+                  'sam',
+                  'bam',
+                  'bed',
+                  'bw',)
 
 #######################################################################
 # Classes
