@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.8'
+__version__ = '0.0.9'
 
 #######################################################################
 # Classes
@@ -198,7 +198,8 @@ class DataDir:
             return
         os.mkdir(cachedir)
 
-    def files(self,extensions=None,owners=None,groups=None,compression=None):
+    def files(self,extensions=None,owners=None,groups=None,compression=None,
+              subdir=None):
         """
         Return a (filtered) list of ArchiveFile objects
         """
@@ -213,9 +214,14 @@ class DataDir:
             files = [f for f in itertools.ifilter(lambda x: str(x.user) in owners,files)]
         if groups:
             files = [f for f in itertools.ifilter(lambda x: str(x.group) in groups,files)]
+        if subdir:
+            files = [f for f in itertools.ifilter(lambda x:
+                                                  x.relpath(self._dirn).startswith(subdir),
+                                                  files)]
         return files
 
-    def list_files(self,extensions=None,owners=None,groups=None,compression=None):
+    def list_files(self,extensions=None,owners=None,groups=None,compression=None,
+                   subdir=None):
         """
         Return a (filtered) list of file paths
         """
@@ -280,6 +286,7 @@ class DataDir:
         groups = set([f.group for f in self._files])
         nfiles = len(filter(lambda x: not x.is_dir,self._files))
         compression = set([f.compression for f in self._files])
+        extensions = set([f.ext for f in filter(lambda x: x.is_file,self._files)])
         # Top-level directories
         top_level = utils.list_dirs(self._dirn)
         # Oldest file modification time
@@ -294,15 +301,23 @@ class DataDir:
         print "Size  : %s (%s)" % (utils.format_file_size(size),
                                    utils.format_file_size(size,'K'))
         print "#files: %d" % nfiles
+        print "File types: %s" % ', '.join([str(ext) for ext in extensions])
         print "Compression types: %s" % ', '.join([str(c) for c in compression])
         print "Users : %s" % ', '.join([str(u) for u in users])
         print "Groups: %s" % ', '.join([str(g) for g in groups])
         print "Oldest: %s %s" % (oldest.datetime.ctime(),oldest.relpath(self._dirn))
         print "Newest: %s %s" % (newest.datetime.ctime(),newest.relpath(self._dirn))
-        print "Top-level directories:"
+        # Top-level subdirectories
+        print "Top-level subdirectories:"
         for subdir in top_level:
-            print "- %s/\t%s" % (subdir,
-                                 utils.format_file_size(get_size(os.path.join(self._dirn,subdir))))
+            subdir_size = os.path.join(self._dirn,subdir)
+            subdir_files = self.files(subdir=subdir)
+            extensions = set([f.ext for f in filter(lambda x: x.is_file,subdir_files)])
+            print "- %s/\t%d\t%s\t%s" % (subdir,
+                                         len(subdir_files),
+                                         utils.format_file_size(get_size(subdir_size)),
+                                         ','.join(extensions))
+        # File permissions
         print "File permissions:"
         print "- unreadable by owner: %s" % ('yes' if has_unreadable else 'no')
         print "- unreadable by group: %s" % ('yes' if has_group_unreadable else 'no')
