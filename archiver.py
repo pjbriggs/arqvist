@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.9'
+__version__ = '0.0.10'
 
 #######################################################################
 # Classes
@@ -280,13 +280,15 @@ class DataDir:
         """
         Report information about the directory 
         """
+        NGS_FILE_TYPES = ('csfasta','qual','fastq','gff','gff3','sam','bam','bed')
         # Collect total size, users etc
         size = sum([f.size for f in self._files])
         users = set([f.user for f in self._files])
         groups = set([f.group for f in self._files])
         nfiles = len(filter(lambda x: not x.is_dir,self._files))
         compression = set([f.compression for f in self._files])
-        extensions = set([f.ext for f in filter(lambda x: x.is_file,self._files)])
+        extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext in NGS_FILE_TYPES,
+                                                self._files)])
         # Top-level directories
         top_level = utils.list_dirs(self._dirn)
         # Oldest file modification time
@@ -312,7 +314,8 @@ class DataDir:
         for subdir in top_level:
             subdir_size = os.path.join(self._dirn,subdir)
             subdir_files = self.files(subdir=subdir)
-            extensions = set([f.ext for f in filter(lambda x: x.is_file,subdir_files)])
+            extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext in NGS_FILE_TYPES,
+                                                    subdir_files)])
             print "- %s/\t%d\t%s\t%s" % (subdir,
                                          len(subdir_files),
                                          utils.format_file_size(get_size(subdir_size)),
