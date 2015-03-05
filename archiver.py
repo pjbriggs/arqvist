@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.6'
+__version__ = '0.0.7'
 
 #######################################################################
 # Classes
@@ -191,15 +191,28 @@ class DataDir:
             return
         os.mkdir(cachedir)
 
-    def files(self):
-        return self._files
+    def files(self,extensions=None,owners=None,groups=None,compression=None):
+        """
+        Return a (filtered) list of ArchiveFile objects
+        """
+        if extensions:
+            files = [f for f in itertools.ifilter(lambda x: x.ext in extensions,self._files)]
+        else:
+            files = self._files
+        if compression:
+            files = [f for f in itertools.ifilter(lambda x: x.compression in compression,
+                                                  self._files)]
+        if owners:
+            files = [f for f in itertools.ifilter(lambda x: x.user in owners,files)]
+        if groups:
+            files = [f for f in itertools.ifilter(lambda x: x.group in groups,files)]
+        return files
 
-    def list_files(self,extensions=None):
+    def list_files(self,extensions=None,owners=None,groups=None,compression=None):
         """
-        Return a list of files (optionally matching extensions)
+        Return a (filtered) list of file paths
         """
-        return [f.path for f in itertools.ifilter(lambda x: not extensions or \
-                                                  x.ext in extensions,self._files)]
+        return [f.path for f in self.files(extensions=extensions,owners=owners,groups=groups)]
 
     def list_symlinks(self):
         """
@@ -485,6 +498,15 @@ def find_tmp_files(datadir):
                               utils.format_file_size(size))
     print "Total size: %s" % utils.format_file_size(total_size)
 
+def list_files(datadir,extensions=None,owners=None,groups=None,compression=None):
+    """
+    Report files owned by specific users and/or groups
+    """
+    for f in DataDir(datadir).files(extensions=extensions,
+                                    compression=compression,
+                                    owners=owners,groups=groups):
+        print "%s\t%s\t%s" % (f.user,f.group,f.relpath(datadir))
+
 #######################################################################
 # Main program
 #######################################################################
@@ -515,6 +537,28 @@ if __name__ == '__main__':
                   description="Create a cache subdirectory under DIR "
                   "(if one doesn't already exist) and use this to store "
                   "information such as MD5 sums for quick lookup.")
+    #
+    # List files
+    p.add_command('list_files',help="List files filtered by various criteria",
+                  usage='%prog list_files OPTIONS DIR',
+                  description="List files filter by criteria specified by "
+                  "one or more OPTIONS.")
+    p.parser_for('list_files').add_option('--extensions',action='store',
+                                          dest='extensions',default=None,
+                                          help="List files with matching "
+                                          "extensions")
+    p.parser_for('list_files').add_option('--compression',action='store',
+                                          dest='compression',default=None,
+                                          help="List files with matching "
+                                          "compression extensions")
+    p.parser_for('list_files').add_option('--owners',action='store',
+                                          dest='owners',default=None,
+                                          help="List files owned by "
+                                          "specified users")
+    p.parser_for('list_files').add_option('--groups',action='store',
+                                          dest='groups',default=None,
+                                          help="List files assigned to "
+                                          "specified groups")
     #
     # List primary data
     p.add_command('primary_data',help="List primary data files",
@@ -578,6 +622,16 @@ if __name__ == '__main__':
         stage_data(args[0],args[1])
     elif cmd == 'init_cache':
         DataDir(args[0]).init_cache()
+    elif cmd == 'list_files':
+        list_files(args[0],
+                   extensions=(None if options.extensions is None \
+                               else options.extensions.split(',')),
+                   owners=(None if options.owners is None \
+                           else options.owners.split(',')),
+                   groups=(None if options.groups is None \
+                           else options.groups.split(',')),
+                   compression=(None if options.compression is None \
+                               else options.compression.split(',')))
     elif cmd == 'primary_data':
         find_primary_data(args[0])
     elif cmd == 'symlinks':
