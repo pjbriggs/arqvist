@@ -304,8 +304,10 @@ class DataDir:
         groups = set([f.group for f in self._files])
         nfiles = len(filter(lambda x: not x.is_dir,self._files))
         compression = set([f.compression for f in self._files])
+        compression.discard('')
         extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext.lower()
                                                 in NGS_FILE_TYPES,self._files)])
+        extensions.discard('')
         # Top-level directories
         top_level = utils.list_dirs(self._dirn)
         # Oldest file modification time
