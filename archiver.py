@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 
 #######################################################################
 # Classes
@@ -237,19 +237,39 @@ class DataDir:
         """
         Report information about the directory 
         """
-        # Report total size, users etc
+        # Collect total size, users etc
         size = sum([f.size for f in self._files])
         users = set([f.user for f in self._files])
         groups = set([f.group for f in self._files])
         nfiles = len(filter(lambda x: not x.is_dir,self._files))
         compression = set([f.compression for f in self._files])
+        # Top-level directories
+        top_level = utils.list_dirs(self._dirn)
+        # Oldest file modification time
+        oldest = reduce(lambda x,y: x if x.timestamp < y.timestamp else y,self._files)
+        newest = reduce(lambda x,y: x if x.timestamp > y.timestamp else y,self._files)
+        # Uneadable/unwriteable files
+        has_unreadable = reduce(lambda x,y: x or not y.is_readable,self._files,False)
+        has_group_unreadable = reduce(lambda x,y: x or not y.is_group_readable,self._files,False)
+        has_group_unwritable = reduce(lambda x,y: x or not y.is_group_writable,self._files,False)
+        # Report information
         print "Dir   : %s" % self._dirn
         print "Size  : %s (%s)" % (utils.format_file_size(size),
                                    utils.format_file_size(size,'K'))
         print "Nfiles: %d" % nfiles
-        print "Compression type: %s" % ', '.join([str(c) for c in compression])
+        print "Compression types: %s" % ', '.join([str(c) for c in compression])
         print "Users : %s" % ', '.join([str(u) for u in users])
         print "Groups: %s" % ', '.join([str(g) for g in groups])
+        print "Oldest: %s %s" % (oldest.datetime.ctime(),oldest.relpath(self._dirn))
+        print "Newest: %s %s" % (newest.datetime.ctime(),newest.relpath(self._dirn))
+        print "Top-level directories:"
+        for subdir in top_level:
+            print "- %s/\t%s" % (subdir,
+                                 utils.format_file_size(get_size(os.path.join(self._dirn,subdir))))
+        print "File permissions:"
+        print "- unreadable by owner: %s" % ('yes' if has_unreadable else 'no')
+        print "- unreadable by group: %s" % ('yes' if has_group_unreadable else 'no')
+        print "- unwritable by group: %s" % ('yes' if has_group_unwritable else 'no')
         print "Has cache?: %s" % ('yes' if self.has_cache else 'no')
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
