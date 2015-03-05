@@ -203,9 +203,9 @@ class DataDir:
             files = [f for f in itertools.ifilter(lambda x: x.compression in compression,
                                                   self._files)]
         if owners:
-            files = [f for f in itertools.ifilter(lambda x: x.user in owners,files)]
+            files = [f for f in itertools.ifilter(lambda x: str(x.user) in owners,files)]
         if groups:
-            files = [f for f in itertools.ifilter(lambda x: x.group in groups,files)]
+            files = [f for f in itertools.ifilter(lambda x: str(x.group) in groups,files)]
         return files
 
     def list_files(self,extensions=None,owners=None,groups=None,compression=None):
