@@ -332,7 +332,7 @@ class DataDir:
                                              len(subdir_files),
                                              utils.format_file_size(get_size(subdir_size)),
                                              ','.join(extensions),
-                                             ','.join(subdir_users))
+                                             ','.join([str(u) for u in subdir_users]))
         # File permissions
         print "File permissions:"
         print "- unreadable by owner: %s" % ('yes' if has_unreadable else 'no')
