@@ -374,8 +374,8 @@ def get_file_extensions(filen):
     Extract extension and compression type from filename
 
     """
-    ext = None
-    compression = None
+    ext = ''
+    compression = ''
     file_parts = os.path.basename(filen).split('.')
     if file_parts[-1] in ('gz','bz2'):
         compression = file_parts[-1]
