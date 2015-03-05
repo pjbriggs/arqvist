@@ -22,6 +22,8 @@ from auto_process_ngs import applications
 
 __version__ = '0.0.10'
 
+NGS_FILE_TYPES = ('csfasta','qual','fastq','gff','gff3','sam','bam','bed','bw')
+
 #######################################################################
 # Classes
 #######################################################################
@@ -280,7 +282,6 @@ class DataDir:
         """
         Report information about the directory 
         """
-        NGS_FILE_TYPES = ('csfasta','qual','fastq','gff','gff3','sam','bam','bed')
         # Collect total size, users etc
         size = sum([f.size for f in self._files])
         users = set([f.user for f in self._files])
@@ -321,7 +322,7 @@ class DataDir:
                                              len(subdir_files),
                                              utils.format_file_size(get_size(subdir_size)),
                                              ','.join(extensions),
-                                             subdir_users)
+                                             ','.join(subdir_users))
         # File permissions
         print "File permissions:"
         print "- unreadable by owner: %s" % ('yes' if has_unreadable else 'no')
