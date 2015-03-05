@@ -20,9 +20,10 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.10'
+__version__ = '0.0.11'
 
 NGS_FILE_TYPES = ('fa',
+                  'fasta',
                   'csfasta',
                   'qual',
                   'fastq',
@@ -32,6 +33,8 @@ NGS_FILE_TYPES = ('fa',
                   'sam',
                   'bam',
                   'bed',
+                  'bd',
+                  'bdg',
                   'bw',)
 
 #######################################################################
@@ -216,7 +219,8 @@ class DataDir:
         Return a (filtered) list of ArchiveFile objects
         """
         if extensions:
-            files = [f for f in itertools.ifilter(lambda x: x.ext in extensions,self._files)]
+            files = [f for f in itertools.ifilter(lambda x: x.ext.lower() in extensions,
+                                                  self._files)]
         else:
             files = self._files
         if compression:
@@ -298,8 +302,8 @@ class DataDir:
         groups = set([f.group for f in self._files])
         nfiles = len(filter(lambda x: not x.is_dir,self._files))
         compression = set([f.compression for f in self._files])
-        extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext in NGS_FILE_TYPES,
-                                                self._files)])
+        extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext.lower()
+                                                in NGS_FILE_TYPES,self._files)])
         # Top-level directories
         top_level = utils.list_dirs(self._dirn)
         # Oldest file modification time
@@ -326,13 +330,19 @@ class DataDir:
             subdir_size = os.path.join(self._dirn,subdir)
             subdir_files = self.files(subdir=subdir)
             subdir_users = set([f.user for f in subdir_files])
-            extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext in NGS_FILE_TYPES,
-                                                    subdir_files)])
-            print "- %s/\t%d\t%s\t%s\t%s" % (subdir,
-                                             len(subdir_files),
-                                             utils.format_file_size(get_size(subdir_size)),
-                                             ','.join(extensions),
-                                             ','.join([str(u) for u in subdir_users]))
+            extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext.lower()
+                                                    in NGS_FILE_TYPES,subdir_files)])
+            usr_unreadable = reduce(lambda x,y: x and not y.is_readable,subdir_files,False)
+            grp_unreadable = reduce(lambda x,y: x or not y.is_group_readable,subdir_files,False)
+            grp_unwritable = reduce(lambda x,y: x or not y.is_group_writable,subdir_files,False)
+            print "- %s/\t%d\t%s\t%s\t%s\t%s" % (subdir,
+                                                 len(subdir_files),
+                                                 utils.format_file_size(get_size(subdir_size)),
+                                                 ','.join(extensions),
+                                                 ','.join([str(u) for u in subdir_users]),
+                                                 'u%s,g%s%s' % (('-' if usr_unreadable else 'r'),
+                                                                ('-' if grp_unreadable else 'r'),
+                                                                ('-' if grp_unwritable else 'w')))
         # File permissions
         print "File permissions:"
         print "- unreadable by owner: %s" % ('yes' if has_unreadable else 'no')
