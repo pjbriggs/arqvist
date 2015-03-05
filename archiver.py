@@ -36,7 +36,7 @@ NGS_FILE_TYPES = ('fa',
                   'bd',
                   'bdg',
                   'bw',
-                  'xqs',
+                  'xsq',
                   'xls')
 
 #######################################################################
@@ -486,7 +486,8 @@ def find_primary_data(datadir):
     """
     for f in DataDir(datadir).list_files(extensions=('csfasta',
                                                      'qual',
-                                                     'fastq')):
+                                                     'fastq',
+                                                     'xsq',)):
         if os.path.islink(f):
             lnk=" *"
         else:
