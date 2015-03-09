@@ -568,7 +568,7 @@ def find_tmp_files(datadir):
         nfiles += 1
         print "%s\t%s" % (os.path.relpath(f,datadir),
                           utils.format_file_size(size))
-    else:
+    if not nfiles:
         print "No files or directories found"
         return
     print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
@@ -586,7 +586,7 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None)
         nfiles += 1
         print "%s\t%s\t%s\t%s" % (f.user,f.group,f.relpath(datadir),
                                   utils.format_file_size(f.size))
-    else:
+    if not nfiles:
         print "No files found"
         return
     print "%d found, total size: %s" (nfiles,utils.format_file_size(total_size))
