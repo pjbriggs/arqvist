@@ -589,7 +589,7 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None)
     if not nfiles:
         print "No files found"
         return
-    print "%d found, total size: %s" (nfiles,utils.format_file_size(total_size))
+    print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
 
 #######################################################################
 # Main program
