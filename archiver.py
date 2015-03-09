@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.11'
+__version__ = '0.0.12'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -569,7 +569,7 @@ def find_tmp_files(datadir):
         print "%s\t%s" % (os.path.relpath(f,datadir),
                           utils.format_file_size(size))
     else:
-        print "None found"
+        print "No files or directories found"
         return
     print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
 
@@ -577,10 +577,19 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None)
     """
     Report files owned by specific users and/or groups
     """
+    nfiles = 0
+    total_size = 0
     for f in DataDir(datadir).files(extensions=extensions,
                                     compression=compression,
                                     owners=owners,groups=groups):
-        print "%s\t%s\t%s" % (f.user,f.group,f.relpath(datadir))
+        total_size += f.size
+        nfiles += 1
+        print "%s\t%s\t%s\t%s" % (f.user,f.group,f.relpath(datadir),
+                                  utils.format_file_size(f.size))
+    else:
+        print "No files found"
+        return
+    print "%d found, total size: %s" (nfiles,utils.format_file_size(total_size))
 
 #######################################################################
 # Main program
