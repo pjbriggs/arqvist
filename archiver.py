@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.12'
+__version__ = '0.0.13'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -574,7 +574,8 @@ def find_tmp_files(datadir):
         return
     print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
 
-def list_files(datadir,extensions=None,owners=None,groups=None,compression=None):
+def list_files(datadir,extensions=None,owners=None,groups=None,compression=None,
+               subdir=None):
     """
     Report files owned by specific users and/or groups
     """
@@ -582,7 +583,8 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None)
     total_size = 0
     for f in DataDir(datadir).files(extensions=extensions,
                                     compression=compression,
-                                    owners=owners,groups=groups):
+                                    owners=owners,groups=groups,
+                                    subdir=subdir):
         total_size += f.size
         nfiles += 1
         print "%s\t%s\t%s\t%s" % (f.user,f.group,f.relpath(datadir),
@@ -644,6 +646,11 @@ if __name__ == '__main__':
                                           dest='groups',default=None,
                                           help="List files assigned to "
                                           "specified groups")
+    p.parser_for('list_files').add_option('--subdir',action='store',
+                                          dest='subdir',default=None,
+                                          help="List files in "
+                                          "subdirectory SUBDIR under "
+                                          "DIR")
     #
     # List primary data
     p.add_command('primary_data',help="List primary data files",
@@ -731,7 +738,8 @@ if __name__ == '__main__':
                    groups=(None if options.groups is None \
                            else options.groups.split(',')),
                    compression=(None if options.compression is None \
-                               else options.compression.split(',')))
+                                else options.compression.split(',')),
+                   subdir=options.subdir)
     elif cmd == 'primary_data':
         find_primary_data(args[0])
     elif cmd == 'symlinks':
