@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.14'
+__version__ = '0.0.15'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -291,6 +291,23 @@ class DataDir:
         return [f.path for f in itertools.ifilter(lambda x: bool(x.basename.count('tmp')),
                                                   self._files)]
 
+    def list_related_dirs(self):
+        """
+        Examine symlinks and find those pointing to external directories
+        """
+        external_dirs = []
+        for f in self.list_symlinks():
+            ln = utils.Symlink(f)
+            resolved_target = ln.resolve_target()
+            if os.path.relpath(resolved_target,self._dirn).startswith('..'):
+                if os.path.isdir(resolved_target):
+                    d = resolved_target
+                else:
+                    d = os.path.dirname(resolved_target)
+                if d not in external_dirs:
+                    external_dirs.append(d)
+        return external_dirs
+
     def md5sums(self):
         """
         Generate MD5sums
@@ -354,6 +371,7 @@ class DataDir:
         print "Dir   : %s" % self._dirn
         print "Size  : %s (%s)" % (utils.format_file_size(size),
                                    utils.format_file_size(size,'K'))
+        print "Has cache: %s" % ('yes' if self.has_cache else 'no')
         print "#files: %d" % nfiles
         print "File types: %s" % ', '.join([str(ext) for ext in extensions])
         print "Compression types: %s" % ', '.join([str(c) for c in compression])
@@ -386,7 +404,14 @@ class DataDir:
         print "- unreadable by group: %s" % ('yes' if has_group_unreadable else 'no')
         print "- unwritable by group: %s" % ('yes' if has_group_unwritable else 'no')
         print "#Temp files: %d" % len(self.list_temp())
-        print "Has cache: %s" % ('yes' if self.has_cache else 'no')
+        # Related directories
+        related = self.list_related_dirs()
+        print "Related directories:"
+        if related:
+            for d in related:
+                print "- %s" % d
+        else:
+            "- None found"
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
         """Copy (rsync) data dir to another location
@@ -513,17 +538,7 @@ def find_related(datadir):
     - functionality not implemented, should be just 'symlinks'?
 
     """
-    external_dirs = []
-    for f in DataDir(datadir).list_symlinks():
-        ln = utils.Symlink(f)
-        resolved_target = ln.resolve_target()
-        if os.path.relpath(resolved_target,datadir).startswith('..'):
-            if os.path.isdir(resolved_target):
-                d = resolved_target
-            else:
-                d = os.path.dirname(resolved_target)
-            if d not in external_dirs:
-                external_dirs.append(d)
+    external_dirs = DataDir(datadir).list_related_dirs()
     if external_dirs:
         for d in external_dirs:
             print d
