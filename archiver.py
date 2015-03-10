@@ -20,7 +20,7 @@ import bcftbx.Md5sum as Md5sum
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.13'
+__version__ = '0.0.14'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -239,7 +239,7 @@ class DataDir:
         os.mkdir(cachedir)
 
     def files(self,extensions=None,owners=None,groups=None,compression=None,
-              subdir=None):
+              subdir=None,sort_keys=None):
         """
         Return a (filtered) list of ArchiveFile objects
         """
@@ -259,14 +259,24 @@ class DataDir:
             files = [f for f in itertools.ifilter(lambda x:
                                                   x.relpath(self._dirn).startswith(subdir),
                                                   files)]
+        if sort_keys:
+            for key in sort_keys:
+                if key == 'size':
+                    files = sorted(files,key=lambda f: f.size)
+                else:
+                    raise NotImplementedError("Sort on '%s' not implemented" % key)
         return files
 
     def list_files(self,extensions=None,owners=None,groups=None,compression=None,
-                   subdir=None):
+                   subdir=None,sort_keys=None):
         """
         Return a (filtered) list of file paths
         """
-        return [f.path for f in self.files(extensions=extensions,owners=owners,groups=groups)]
+        return [f.path for f in self.files(extensions=extensions,
+                                           owners=owners,groups=groups,
+                                           compression=compression,
+                                           subdir=subdir,
+                                           sort_keys=sort_keys)]
 
     def list_symlinks(self):
         """
@@ -437,6 +447,21 @@ def get_size(f,block_size=1):
     # up or down to nearest integer
     return int(round(float(size)/float(block_size)))
 
+def convert_size(size):
+    """
+    Convert arbitarty file size (e.g. 1T, 100G etc) to bytes
+    """
+    size = str(size)
+    units = size[-1].upper()
+    try:
+        power = 'BKMGT'.index(units)
+        size = float(size[:-1])
+        for i in range(power):
+            size = size * 1024.0
+    except ValueError:
+        size = float(size)
+    return size
+
 def stage_data(datadir,staging_dir):
     """
     Make a staging copy of data dir
@@ -597,16 +622,19 @@ def find_tmp_files(datadir):
     print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
 
 def list_files(datadir,extensions=None,owners=None,groups=None,compression=None,
-               subdir=None):
+               subdir=None,sort_keys=None,min_size=None):
     """
     Report files owned by specific users and/or groups
     """
     nfiles = 0
     total_size = 0
+    if min_size: min_size = convert_size(min_size)
     for f in DataDir(datadir).files(extensions=extensions,
                                     compression=compression,
                                     owners=owners,groups=groups,
-                                    subdir=subdir):
+                                    subdir=subdir,
+                                    sort_keys=sort_keys):
+        if min_size and f.size < min_size: continue
         total_size += f.size
         nfiles += 1
         print "%s\t%s\t%s%s\t%s" % (f.user,f.group,
@@ -675,6 +703,15 @@ if __name__ == '__main__':
                                           help="List files in "
                                           "subdirectory SUBDIR under "
                                           "DIR")
+    p.parser_for('list_files').add_option('--sort',action='store',
+                                          dest='sortkeys',default=None,
+                                          help="List files sorted in "
+                                          "order according to one or "
+                                          "more SORTKEYS ('size',...)")
+    p.parser_for('list_files').add_option('--minsize',action='store',
+                                          dest='min_size',default=None,
+                                          help="Only report files with "
+                                          "size greater than MIN_SIZE")
     #
     # List primary data
     p.add_command('primary_data',help="List primary data files",
@@ -763,7 +800,10 @@ if __name__ == '__main__':
                            else options.groups.split(',')),
                    compression=(None if options.compression is None \
                                 else options.compression.split(',')),
-                   subdir=options.subdir)
+                   subdir=options.subdir,
+                   sort_keys=(None if options.sortkeys is None \
+                              else options.sortkeys.split(',')),
+                   min_size=options.min_size)
     elif cmd == 'primary_data':
         find_primary_data(args[0])
     elif cmd == 'symlinks':
