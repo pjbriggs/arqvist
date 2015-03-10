@@ -67,6 +67,28 @@ class ArchiveFile(utils.PathInfo):
         """
         return os.path.basename(self.path)
 
+    @property
+    def classifier(self):
+        """
+        Return classifier for an ArchiveFile object
+        
+        Return an indicator consistent with 'ls -F' depending
+        on file type:
+
+        / indicates a directory
+        @ indicates a link
+        * indicates an executable
+        
+        Empty string indicates a regular file.
+        """
+        if self.is_link:
+            return '@'
+        elif self.is_dir:
+            return os.sep
+        elif self.is_executable:
+            return '*'
+        return ''
+
     def __repr__(self):
         return self.path
 
@@ -587,8 +609,10 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None,
                                     subdir=subdir):
         total_size += f.size
         nfiles += 1
-        print "%s\t%s\t%s\t%s" % (f.user,f.group,f.relpath(datadir),
-                                  utils.format_file_size(f.size))
+        print "%s\t%s\t%s%s\t%s" % (f.user,f.group,
+                                    f.relpath(datadir),
+                                    f.classifier,
+                                    utils.format_file_size(f.size))
     if not nfiles:
         print "No files found"
         return
