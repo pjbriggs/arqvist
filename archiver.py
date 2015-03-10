@@ -411,7 +411,7 @@ class DataDir:
             for d in related:
                 print "- %s" % d
         else:
-            "- None found"
+            print "- None found"
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
         """Copy (rsync) data dir to another location
