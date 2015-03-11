@@ -21,7 +21,7 @@ import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.16'
+__version__ = '0.0.17'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -705,7 +705,7 @@ def report_solid(datadir):
                 print "name = %s" % name
                 raise Exception("Unmatched name: %s" % f.path)
             pairs[name].append(f)
-    # Extract sample names and timestamps
+    # Extract sample and library names, and timestamps
     samples = {}
     for name in pairs:
         # Break down the names
@@ -717,44 +717,60 @@ def report_solid(datadir):
         # Sample names
         try:
             i = fields.index('results.F1B1')
-            project = fields[i-1]
+            sample = fields[i-1]
             fields = fields[i+1:]
         except ValueError:
-            project = None
+            sample = None
         try:
             i = fields.index('libraries')
-            sample = fields[i+1]
+            library = fields[i+1]
             fields = fields[i+2:]
         except ValueError:
-            sample = None
-        if project and sample:
-            sample = "%s/%s" % (project,sample)
-        elif project and not sample:
-            sample = project
-        elif sample and not project:
-            sample = sample
-        else:
-            sample = '_unknown_'
-        if sample not in samples:
-            samples[sample] = {}
+            library = None
+        sample_name = "%s/%s" % (sample if sample is not None else '_none_',
+                                 library if library is not None else '_none_')
+        if sample_name not in samples:
+            samples[sample_name] = {}
         # Timestamp
         timestamp = solid.extract_library_timestamp(name)
         if timestamp is None:
             timestamp = 'unknown'
-        if timestamp not in samples[sample]:
-            samples[sample][timestamp] = []
-        samples[sample][timestamp].append(pairs[name])
+        if timestamp not in samples[sample_name]:
+            samples[sample_name][timestamp] = []
+        samples[sample_name][timestamp].append(pairs[name])
         # Report
         ##print "%s" % name
         ##print "Sample   : %s" % sample
         ##print "Timestamp: %s" % timestamp
         ##print "- %s" % '\n- '.join([f.relpath(datadir) for f in pairs[name]])
+    # Try to detect (and discard) samples that are not 'real' datasets
+    discard_list = []
+    for s in samples.keys():
+        if s.split('/')[1] in ('missing-bc','missing-f3','unassigned'):
+            # Generic 'samples' from sequencer
+            discard_list.append(s)
+        elif s.split('/')[1] == '_none_' and s.split('/')[0] != '_none_':
+            # A sample with no libraries
+            # See if there are other occurances which include a library
+            # in which case this can be ignored
+            sname = s.split('/')[0]+'/'
+            for s1 in samples.keys():
+                if s1 != s and s1.startswith(sname):
+                    discard_list.append(s)
+                    break
     # List of samples
-    sample_names = sorted(samples.keys())
+    sample_names = []
+    for s in sorted(samples.keys()):
+        # Discard generic sample names
+        if s in discard_list:
+            print "Discarding '%s'" % s
+        else:
+            sample_names.append(s)
     # Sample groups
     sample_groups = {}
     for sample in sample_names:
-        group = utils.extract_initials(sample)
+        library = sample.split('/')[1]
+        group = utils.extract_initials(library)
         if group not in sample_groups:
             sample_groups[group] = []
         sample_groups[group].append(sample)
