@@ -17,10 +17,11 @@ import bz2
 import gzip
 import bcftbx.utils as utils
 import bcftbx.Md5sum as Md5sum
+import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.15'
+__version__ = '0.0.16'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -405,13 +406,15 @@ class DataDir:
         print "- unwritable by group: %s" % ('yes' if has_group_unwritable else 'no')
         print "#Temp files: %d" % len(self.list_temp())
         # Related directories
-        related = self.list_related_dirs()
-        print "Related directories:"
-        if related:
-            for d in related:
-                print "- %s" % d
-        else:
-            print "- None found"
+        ## commented out for now - for solid data this can create a long
+        ## but not very useful list
+        #related = self.list_related_dirs()
+        #print "Related directories:"
+        #if related:
+        #    for d in related:
+        #        print "- %s" % d
+        #else:
+        #    print "- None found"
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
         """Copy (rsync) data dir to another location
@@ -430,6 +433,17 @@ class DataDir:
 #######################################################################
 # Functions
 #######################################################################
+
+def strip_extensions(path):
+    """
+    Strip off all trailing extensions
+    """
+    path,ext = os.path.splitext(path)
+    ##print "%s %s" % (path,ext)
+    while ext:
+        path,ext = os.path.splitext(path)
+        ##print "%s %s" % (path,ext)
+    return path
 
 def get_file_extensions(filen):
     """
@@ -474,7 +488,7 @@ def get_size(f,block_size=1):
 
 def convert_size(size):
     """
-    Convert arbitarty file size (e.g. 1T, 100G etc) to bytes
+    Convert arbitary file size (e.g. 1T, 100G etc) to bytes
     """
     size = str(size)
     units = size[-1].upper()
@@ -661,6 +675,104 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None,
         return
     print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
 
+def report_solid(datadir):
+    """
+    Try to group primary data and sort into samples etc for SOLiD runs
+    """
+    # Get csfasta and qual files
+    primary_data = DataDir(datadir).files(extensions=('csfasta','qual',))
+    # Filter out links
+    primary_data = filter(lambda f: not f.is_link,primary_data)
+    # Step 1: filter out obvious analysis products
+    # Examples:
+    # U2OS_input/FOXM1_filtered_T_F3.csfasta.bz2
+    # U2OS_input/FOXM1_filtered_U_F3_QV.qual.bz2
+    primary_data = filter(lambda f: f.basename.count('_T_F3') < 1
+                          and f.basename.count('_U_F3') < 1,
+                          primary_data)
+    # Step 2: sort into csfasta/qual pairs
+    pairs = {}
+    for f in primary_data:
+        if f.ext == 'csfasta':
+            name = strip_extensions(f.relpath(datadir))
+            if name not in pairs:
+                pairs[name] = []
+            pairs[name].append(f)
+    for f in primary_data:
+        if f.ext == 'qual':
+            name = strip_extensions(f.relpath(datadir)).replace('_QV','')
+            if name not in pairs:
+                print "name = %s" % name
+                raise Exception("Unmatched name: %s" % f.path)
+            pairs[name].append(f)
+    # Extract sample names and timestamps
+    samples = {}
+    for name in pairs:
+        # Break down the names
+        fields = name.split(os.sep)
+        # Sample name
+        # Example paths:
+        # LH_POOL/results.F1B1/libraries/LH1/primary.20111208144829752/reads/solid0127_20111207_FRAG_BC_LH_POOL_BC_LH1
+        # ZD_hu/results.F1B1/primary.20091220022109452/reads/solid0424_20091214_ZD_hu_F3
+        # Sample names
+        try:
+            i = fields.index('results.F1B1')
+            project = fields[i-1]
+            fields = fields[i+1:]
+        except ValueError:
+            project = None
+        try:
+            i = fields.index('libraries')
+            sample = fields[i+1]
+            fields = fields[i+2:]
+        except ValueError:
+            sample = None
+        if project and sample:
+            sample = "%s/%s" % (project,sample)
+        elif project and not sample:
+            sample = project
+        elif sample and not project:
+            sample = sample
+        else:
+            sample = '_unknown_'
+        if sample not in samples:
+            samples[sample] = {}
+        # Timestamp
+        timestamp = solid.extract_library_timestamp(name)
+        if timestamp is None:
+            timestamp = 'unknown'
+        if timestamp not in samples[sample]:
+            samples[sample][timestamp] = []
+        samples[sample][timestamp].append(pairs[name])
+        # Report
+        ##print "%s" % name
+        ##print "Sample   : %s" % sample
+        ##print "Timestamp: %s" % timestamp
+        ##print "- %s" % '\n- '.join([f.relpath(datadir) for f in pairs[name]])
+    # List of samples
+    sample_names = sorted(samples.keys())
+    # Sample groups
+    sample_groups = {}
+    for sample in sample_names:
+        group = utils.extract_initials(sample)
+        if group not in sample_groups:
+            sample_groups[group] = []
+        sample_groups[group].append(sample)
+    # Report
+    print "Samples (ungrouped): %s" % ', '.join(sample_names)
+    print "Groups:"
+    for group in sample_groups:
+        print "- %s: %s" % (group,', '.join(sample_groups[group]))
+    for sample in sample_names:
+        print '=' * (len(sample)+6)
+        print "== %s ==" % sample
+        print '=' * (len(sample)+6)
+        for timestamp in samples[sample]:
+            print "* Timestamp: %s" % timestamp
+            for pair in samples[sample][timestamp]:
+                for f in pair:
+                    print "- %s" % f.relpath(datadir)
+
 #######################################################################
 # Main program
 #######################################################################
@@ -732,6 +844,11 @@ if __name__ == '__main__':
     p.add_command('primary_data',help="List primary data files",
                   usage='%prog primary_data DIR',
                   description="List the primary data files found in DIR.")
+    #
+    # List primary data (SOLiD)
+    p.add_command('report_solid',help="List primary data files for SOLiD",
+                  usage='%prog primary_data DIR',
+                  description="List the SOLiD primary data files found in DIR.")
     #
     # List symlinks
     p.add_command('symlinks',help="List symlinks",
@@ -821,6 +938,8 @@ if __name__ == '__main__':
                    min_size=options.min_size)
     elif cmd == 'primary_data':
         find_primary_data(args[0])
+    elif cmd == 'report_solid':
+        report_solid(args[0])
     elif cmd == 'symlinks':
         find_symlinks(args[0])
     elif cmd == 'md5sums':
