@@ -21,7 +21,7 @@ import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.19'
+__version__ = '0.0.20'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -571,19 +571,22 @@ class SolidDataDir(DataDir):
             # Example name formats
             # LH_POOL/results.F1B1/libraries/LH1/primary.20111208144829752/reads/solid0127_20111207_FRAG_BC_LH_POOL_BC_LH1
             # ZD_hu/results.F1B1/primary.20091220022109452/reads/solid0424_20091214_ZD_hu_F3
+            # SH_JC1_pool/results.F1B1/libraries_MM2/JC_SEQ30/primary.20120125063517232/reads/solid0127_20120117_PE_BC_SH_JC1_pool_F5-BC_JC_SEQ30
             fields = name.split(os.sep)
+            # Attempt to extract from the path
+            sample = None
+            library = None
             try:
                 i = fields.index('results.F1B1')
                 sample = fields[i-1]
                 fields = fields[i+1:]
             except ValueError:
-                sample = None
-            try:
-                i = fields.index('libraries')
-                library = fields[i+1]
-                fields = fields[i+2:]
-            except ValueError:
-                library = None
+                pass
+            for i,field in enumerate(fields):
+                if field.startswith('libraries'):
+                    library = fields[i+1]
+                    fields = fields[i+2:]
+                    break
             # Extract timestamp
             timestamp = solid.extract_library_timestamp(name)
             if timestamp is None:
