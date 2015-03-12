@@ -21,7 +21,7 @@ import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.18'
+__version__ = '0.0.19'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -430,6 +430,93 @@ class DataDir:
             status = -1
         return status
 
+class SolidLibrary:
+    """
+    Utility class for holding data about a SOLiD library
+    """
+    def __init__(self,sample,library):
+        self._sample_name = ('' if sample is None else str(sample))
+        self._library_name = ('' if library is None else str(library))
+        self._files = {}
+    @property
+    def sample_name(self):
+        """
+        Return sample name for this library
+        """
+        return self._sample_name
+    @property
+    def library_name(self):
+        """
+        Return library name for this library
+        """
+        return self._library_name
+    @property
+    def name(self):
+        """
+        Return the short name for this library
+    
+        This is either the supplied library name, or
+        the sample name if the library name was empty.
+        """
+        if not self._library_name:
+            return self._sample_name
+        return self._library_name
+    @property
+    def fullname(self):
+        """
+        Return the full name for this library
+
+        This is a name made up from the supplied
+        sample and library names concatenated with a
+        slash ('/') e.g. SAMPLE/LIBRARY
+
+        If either component is null then the full
+        name will be of the form /LIBRARY or SAMPLE/.
+        """
+        return "%s/%s" % (self._sample_name,self._library_name)
+    @property
+    def group(self):
+        """
+        Return the group identifier for the library
+        """
+        return utils.extract_initials(self.name)
+    @property
+    def timestamps(self):
+        """
+        Return a list of associated timestamps
+        """
+        return sorted(self._files.keys())
+    def add_file_pair(self,timestamp,file_pair):
+        """
+        Associate a pair of files with a timestamp
+
+        file_pair should be a tuple or list of
+        ArchiveFile objects.
+
+        The files can be accessed using the
+        'get_file_pairs' method.
+        """
+        if timestamp not in self.timestamps:
+            self._files[timestamp] = []
+        self._files[timestamp].append(list(file_pair))
+    def get_file_pairs(self,timestamp=None):
+        """
+        Return file pairs
+
+        If timestamp is not None then return
+        just the file pairs associated with that
+        timestamp. Otherwise return all file
+        pairs.
+        """
+        if timestamp is not None:
+            return self._files[timestamp]
+        else:
+            file_pairs = []
+            for ts in self.timestamps:
+                for p in self.get_file_pairs(ts):
+                    file_pairs.append(p)
+            return file_pairs
+
 class SolidDataDir(DataDir):
     """
     Subclass of DataDir with additional methods specifically for
@@ -479,7 +566,7 @@ class SolidDataDir(DataDir):
         # Extract sample/library names and timestamps
         # For SOLiD the top-level is a 'sample', which may be
         # split into multiple 'libraries'
-        libraries = {}
+        libraries = []
         for name in pairs:
             # Example name formats
             # LH_POOL/results.F1B1/libraries/LH1/primary.20111208144829752/reads/solid0127_20111207_FRAG_BC_LH_POOL_BC_LH1
@@ -497,67 +584,76 @@ class SolidDataDir(DataDir):
                 fields = fields[i+2:]
             except ValueError:
                 library = None
-            # Create a name of the form 'sample/library'
-            library_name = "%s/%s" % (sample if sample is not None else '',
-                                      library if library is not None else '')
-            if library_name not in libraries:
-                libraries[library_name] = {}
             # Extract timestamp
             timestamp = solid.extract_library_timestamp(name)
             if timestamp is None:
                 timestamp = 'unknown'
-            # Store the 
-            if timestamp not in libraries[library_name]:
-                libraries[library_name][timestamp] = []
-            libraries[library_name][timestamp].append(pairs[name])
+            # Store the library
+            existing_lib = False
+            lib = SolidLibrary(sample,library)
+            for l in libraries:
+                if l.fullname == lib.fullname:
+                    lib = l
+                    existing_lib = True
+                    break
+            if not existing_lib:
+                libraries.append(lib)
+            lib.add_file_pair(timestamp,pairs[name])
         # Detect and discard libraries that don't represent
         # 'real' datasets
-        library_names = []
-        for libname in libraries.keys():
-            sample_name,library_name = libname.split('/')
-            if library_name in ('missing-bc','missing-f3','unassigned'):
-                print "Discarding %s" % libname
+        self._libraries = []
+        for lib in libraries:
+            if lib.library_name in ('missing-bc','missing-f3','unassigned'):
+                print "Discarding %s" % lib.fullname
                 continue
-            elif sample_name and not library_name:
+            elif not lib.library_name:
+                # Sample name with empty library name
                 # See if there are other libraries with the
-                # same sample name but a non-blank library name
+                # same sample name but a non-empty library name
                 # If so then this one can be discarded
-                if len(filter(lambda l: l != libname and l.startswith(sample_name),
-                              libraries.keys())) > 0:
-                    print "Discarding %s" % libname
+                if len(filter(lambda l: l.sample_name == lib.sample_name and \
+                              l.library_name != lib.library_name,
+                              libraries)) > 0:
+                    print "Discarding %s" % lib.fullname
                     continue
-            library_names.append(libname)
-        # Group libraries
-        library_groups = {}
-        for libname in library_names:
-            sample_name,library_name = libname.split('/')
-            if not library_name:
-                library_name = sample_name
-            group = utils.extract_initials(library_name)
-            if group not in library_groups:
-                library_groups[group] = []
-            library_groups[group].append(libname)
-        # Assign data to instance attributes
-        self._primary_data = primary_data
-        self._libraries = libraries
-        self._library_names = library_names
-        self._library_groups = library_groups
+            ##print "Keeping %s" % lib.fullname
+            self._libraries.append(lib)
+
+    @property
+    def libraries(self):
+        return [l for l in self._libraries]
+
+    @property
+    def library_groups(self):
+        """
+        Return list of library group names
+        """
+        return sorted(list(set([l.group for l in self._libraries])))
+
+    def libraries_in_group(self,group):
+        """
+        Return list of libraries belonging to group
+        """
+        return filter(lambda l: l.group == group,self._libraries)
 
     def report(self):
         """
         Report
         """
-        print "Libraries (ungrouped): %s" % ', '.join(self._library_names)
+        print "Libraries (ungrouped): %s" % \
+            ', '.join(sorted([l.name for l in self.libraries]))
         print "Groups:"
-        for group in self._library_groups:            
-            print "- %s: %s" % (group,', '.join(self._library_groups[group]))
-        for library in self._library_names:
-            print '=' * (len(library)+4)
-            print "* %s *" % library
-            print '=' * (len(library)+4)
-            for timestamp in self._libraries[library]:
+        for group in self.library_groups: 
+            print "- %s: %s" % (group,
+                                ', '.join(sorted([l.name for \
+                                                  l in self.libraries_in_group(group)])))
+        for lib in self.libraries:
+            print '=' * (len(lib.fullname)+4)
+            print "* %s *" % lib.fullname
+            print '=' * (len(lib.fullname)+4)
+            for timestamp in lib.timestamps:
                 print "* Timestamp: %s" % timestamp
-                for pair in self._libraries[library][timestamp]:
+                for pair in lib.get_file_pairs(timestamp):
                     for f in pair:
                         print "- %s" % f.relpath(self._dirn)
 
