@@ -21,7 +21,7 @@ import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.17'
+__version__ = '0.0.18'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -430,6 +430,137 @@ class DataDir:
             status = -1
         return status
 
+class SolidDataDir(DataDir):
+    """
+    Subclass of DataDir with additional methods specifically for
+    examining SOLiD data
+    """
+    def __init__(self,dirn):
+        # Init base class
+        DataDir.__init__(self,dirn)
+        self._primary_data = None
+        self._libraries = None
+        self._library_names = None
+        self._library_groups = None
+        self._populate()
+
+    def _populate(self):
+        """
+        Acquire data specifically for SOLiD
+        """
+        # Get csfasta and qual files
+        primary_data = self.files(extensions=('csfasta','qual',))
+        # Filter out links and obvious analysis products
+        # e.g.
+        # U2OS_input/FOXM1_filtered_T_F3.csfasta.bz2
+        # U2OS_input/FOXM1_filtered_U_F3_QV.qual.bz2
+        primary_data = filter(lambda f: not f.is_link,primary_data)
+        primary_data = filter(lambda f: f.basename.count('_T_F3') < 1
+                              and f.basename.count('_U_F3') < 1,
+                              primary_data)
+        # Sort into csfasta/qual pairs
+        pairs = {}
+        for f in primary_data:
+            name = strip_extensions(f.relpath(self._dirn))
+            if f.ext == 'qual':
+                name = name.replace('_QV','')
+            if name not in pairs:
+                pairs[name] = []
+            pairs[name].append(f)
+        # Check for and report 'bad' pairs
+        for name in pairs:
+            pair = pairs[name]
+            if len(pair) != 2:
+                logging.warning("Wrong number of files in \"pair\" '%s' (%d)" %
+                                (name,len(pair)))
+            for ext in ('csfasta','qual'):
+                if len(filter(lambda f: f.ext == ext,pair)) > 1:
+                    logging.warning("Multiple %s files in \"pair\" '%s'" % (ext,name))
+        # Extract sample/library names and timestamps
+        # For SOLiD the top-level is a 'sample', which may be
+        # split into multiple 'libraries'
+        libraries = {}
+        for name in pairs:
+            # Example name formats
+            # LH_POOL/results.F1B1/libraries/LH1/primary.20111208144829752/reads/solid0127_20111207_FRAG_BC_LH_POOL_BC_LH1
+            # ZD_hu/results.F1B1/primary.20091220022109452/reads/solid0424_20091214_ZD_hu_F3
+            fields = name.split(os.sep)
+            try:
+                i = fields.index('results.F1B1')
+                sample = fields[i-1]
+                fields = fields[i+1:]
+            except ValueError:
+                sample = None
+            try:
+                i = fields.index('libraries')
+                library = fields[i+1]
+                fields = fields[i+2:]
+            except ValueError:
+                library = None
+            # Create a name of the form 'sample/library'
+            library_name = "%s/%s" % (sample if sample is not None else '',
+                                      library if library is not None else '')
+            if library_name not in libraries:
+                libraries[library_name] = {}
+            # Extract timestamp
+            timestamp = solid.extract_library_timestamp(name)
+            if timestamp is None:
+                timestamp = 'unknown'
+            # Store the 
+            if timestamp not in libraries[library_name]:
+                libraries[library_name][timestamp] = []
+            libraries[library_name][timestamp].append(pairs[name])
+        # Detect and discard libraries that don't represent
+        # 'real' datasets
+        library_names = []
+        for libname in libraries.keys():
+            sample_name,library_name = libname.split('/')
+            if library_name in ('missing-bc','missing-f3','unassigned'):
+                print "Discarding %s" % libname
+                continue
+            elif sample_name and not library_name:
+                # See if there are other libraries with the
+                # same sample name but a non-blank library name
+                # If so then this one can be discarded
+                if len(filter(lambda l: l != libname and l.startswith(sample_name),
+                              libraries.keys())) > 0:
+                    print "Discarding %s" % libname
+                    continue
+            library_names.append(libname)
+        # Group libraries
+        library_groups = {}
+        for libname in library_names:
+            sample_name,library_name = libname.split('/')
+            if not library_name:
+                library_name = sample_name
+            group = utils.extract_initials(library_name)
+            if group not in library_groups:
+                library_groups[group] = []
+            library_groups[group].append(libname)
+        # Assign data to instance attributes
+        self._primary_data = primary_data
+        self._libraries = libraries
+        self._library_names = library_names
+        self._library_groups = library_groups
+
+    def report(self):
+        """
+        Report
+        """
+        print "Libraries (ungrouped): %s" % ', '.join(self._library_names)
+        print "Groups:"
+        for group in self._library_groups:            
+            print "- %s: %s" % (group,', '.join(self._library_groups[group]))
+        for library in self._library_names:
+            print '=' * (len(library)+4)
+            print "* %s *" % library
+            print '=' * (len(library)+4)
+            for timestamp in self._libraries[library]:
+                print "* Timestamp: %s" % timestamp
+                for pair in self._libraries[library][timestamp]:
+                    for f in pair:
+                        print "- %s" % f.relpath(self._dirn)
+
 #######################################################################
 # Functions
 #######################################################################
@@ -679,115 +810,7 @@ def report_solid(datadir):
     """
     Try to group primary data and sort into samples etc for SOLiD runs
     """
-    # Get csfasta and qual files
-    primary_data = DataDir(datadir).files(extensions=('csfasta','qual',))
-    # Filter out links
-    primary_data = filter(lambda f: not f.is_link,primary_data)
-    # Step 1: filter out obvious analysis products
-    # Examples:
-    # U2OS_input/FOXM1_filtered_T_F3.csfasta.bz2
-    # U2OS_input/FOXM1_filtered_U_F3_QV.qual.bz2
-    primary_data = filter(lambda f: f.basename.count('_T_F3') < 1
-                          and f.basename.count('_U_F3') < 1,
-                          primary_data)
-    # Step 2: sort into csfasta/qual pairs
-    pairs = {}
-    for f in primary_data:
-        if f.ext == 'csfasta':
-            name = strip_extensions(f.relpath(datadir))
-            if name not in pairs:
-                pairs[name] = []
-            pairs[name].append(f)
-    for f in primary_data:
-        if f.ext == 'qual':
-            name = strip_extensions(f.relpath(datadir)).replace('_QV','')
-            if name not in pairs:
-                print "name = %s" % name
-                raise Exception("Unmatched name: %s" % f.path)
-            pairs[name].append(f)
-    # Extract sample and library names, and timestamps
-    samples = {}
-    for name in pairs:
-        # Break down the names
-        fields = name.split(os.sep)
-        # Sample name
-        # Example paths:
-        # LH_POOL/results.F1B1/libraries/LH1/primary.20111208144829752/reads/solid0127_20111207_FRAG_BC_LH_POOL_BC_LH1
-        # ZD_hu/results.F1B1/primary.20091220022109452/reads/solid0424_20091214_ZD_hu_F3
-        # Sample names
-        try:
-            i = fields.index('results.F1B1')
-            sample = fields[i-1]
-            fields = fields[i+1:]
-        except ValueError:
-            sample = None
-        try:
-            i = fields.index('libraries')
-            library = fields[i+1]
-            fields = fields[i+2:]
-        except ValueError:
-            library = None
-        sample_name = "%s/%s" % (sample if sample is not None else '_none_',
-                                 library if library is not None else '_none_')
-        if sample_name not in samples:
-            samples[sample_name] = {}
-        # Timestamp
-        timestamp = solid.extract_library_timestamp(name)
-        if timestamp is None:
-            timestamp = 'unknown'
-        if timestamp not in samples[sample_name]:
-            samples[sample_name][timestamp] = []
-        samples[sample_name][timestamp].append(pairs[name])
-        # Report
-        ##print "%s" % name
-        ##print "Sample   : %s" % sample
-        ##print "Timestamp: %s" % timestamp
-        ##print "- %s" % '\n- '.join([f.relpath(datadir) for f in pairs[name]])
-    # Try to detect (and discard) samples that are not 'real' datasets
-    discard_list = []
-    for s in samples.keys():
-        if s.split('/')[1] in ('missing-bc','missing-f3','unassigned'):
-            # Generic 'samples' from sequencer
-            discard_list.append(s)
-        elif s.split('/')[1] == '_none_' and s.split('/')[0] != '_none_':
-            # A sample with no libraries
-            # See if there are other occurances which include a library
-            # in which case this can be ignored
-            sname = s.split('/')[0]+'/'
-            for s1 in samples.keys():
-                if s1 != s and s1.startswith(sname):
-                    discard_list.append(s)
-                    break
-    # List of samples
-    sample_names = []
-    for s in sorted(samples.keys()):
-        # Discard generic sample names
-        if s in discard_list:
-            print "Discarding '%s'" % s
-        else:
-            sample_names.append(s)
-    # Sample groups
-    sample_groups = {}
-    for sample in sample_names:
-        library = sample.split('/')[1]
-        group = utils.extract_initials(library)
-        if group not in sample_groups:
-            sample_groups[group] = []
-        sample_groups[group].append(sample)
-    # Report
-    print "Samples (ungrouped): %s" % ', '.join(sample_names)
-    print "Groups:"
-    for group in sample_groups:
-        print "- %s: %s" % (group,', '.join(sample_groups[group]))
-    for sample in sample_names:
-        print '=' * (len(sample)+6)
-        print "== %s ==" % sample
-        print '=' * (len(sample)+6)
-        for timestamp in samples[sample]:
-            print "* Timestamp: %s" % timestamp
-            for pair in samples[sample][timestamp]:
-                for f in pair:
-                    print "- %s" % f.relpath(datadir)
+    SolidDataDir(datadir).report()
 
 #######################################################################
 # Main program
