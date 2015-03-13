@@ -21,7 +21,7 @@ import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.22'
+__version__ = '0.0.23'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -72,14 +72,14 @@ class ArchiveFile(utils.PathInfo):
     def classifier(self):
         """
         Return classifier for an ArchiveFile object
-        
+
         Return an indicator consistent with 'ls -F' depending
         on file type:
 
         / indicates a directory
         @ indicates a link
         * indicates an executable
-        
+
         Empty string indicates a regular file.
         """
         if self.is_link:
@@ -92,6 +92,96 @@ class ArchiveFile(utils.PathInfo):
 
     def __repr__(self):
         return self.path
+
+class ArchiveSymlink(utils.Symlink):
+    """
+    Class for interrogating and modifying a symlink
+
+    """
+    def __init__(self,path):
+        utils.Symlink.__init__(self,path)
+
+    def external_to(self,dirn):
+        """
+        Check if target is 'external' to the supplied directory
+        """
+        return os.path.relpath(self.resolve_target(),dirn).startswith('..')
+
+    def rebase(self,old_base,new_base):
+        """
+        Update the target of an absolute link by replacing leading part
+        """
+        if not self.is_absolute:
+            return
+        dirn = os.path.dirname(self.target)
+        if dirn.startswith(old_base):
+            dirn = dirn.replace(old_base,new_base)
+        new_target = os.path.join(dirn,os.path.basename(self.target))
+        self.update_target(new_target)
+
+    def make_relative(self):
+        """
+        Convert an absolute link to a relative link
+        """
+        if not self.is_absolute:
+            return
+        new_target = os.path.relpath(self.resolve_target(),
+                                     os.path.dirname(self._abspath))
+        self.update_target(new_target)
+
+    @property
+    def alternative_target(self):
+        """
+        Return alternative target for broken link
+
+        If link is broken then check for a link to
+        an uncompressed file if there is a compressed
+        file with the same path, or for a link to a
+        compressed file if there is an uncompressed
+        version.
+
+        Returns None if link is not broken or if
+        there is no alternative target.
+
+        """
+        if not self.is_broken:
+            return None
+        # Check for alternatives
+        target = self.resolve_target()
+        for ext in ('.gz','.bz2'):
+            alt_target = target + ext
+            if os.path.exists(alt_target):
+                return alt_target
+        # Nothing found
+        return None
+
+    @property
+    def classifier(self):
+        """Return classifier for an ArchiveSymlink object
+
+        Return an indicator string with the following
+        components:
+
+        A = absolute link target
+        r = relative target
+        X = broken link
+        x = broken link with alternative target
+
+        Empty string indicates a regular file.
+        """
+        classifier = []
+        if self.is_absolute:
+            classifier.append('A')
+        else:
+            classifier.append('r')
+        if self.is_broken:
+            if not self.alternative_target:
+                classifier.append('X')
+            else:
+                classifier.append('x')
+        else:
+            classifier.append('-')
+        return ''.join(classifier)
 
 class DataDir:
     """
@@ -298,9 +388,9 @@ class DataDir:
         """
         external_dirs = []
         for f in self.list_symlinks():
-            ln = utils.Symlink(f)
+            ln = ArchiveSymlink(f)
             resolved_target = ln.resolve_target()
-            if os.path.relpath(resolved_target,self._dirn).startswith('..'):
+            if ln.external_to(self._dirn):
                 if os.path.isdir(resolved_target):
                     d = resolved_target
                 else:
@@ -811,19 +901,26 @@ def find_primary_data(datadir):
 def find_symlinks(datadir):
     """
     Examine symlinks and find those pointing outside this dir
-
-    TODO:
-    - functionality not implemented, should be just 'symlinks'?
-
     """
     for f in DataDir(datadir).list_symlinks():
-        ln = utils.Symlink(f)
+        # Get link target and resolve to an absolute path
+        ln = ArchiveSymlink(f)
         resolved_target = ln.resolve_target()
-        external_target = os.path.relpath(resolved_target,datadir).startswith('..')
-        print "%s %s\n\t-> %s\n\t-> %s" % ('[E]' if external_target else '   ',
-                                           os.path.relpath(f,datadir),
-                                           ln.target,
-                                           resolved_target)
+        # Check link status
+        absolute = ln.is_absolute
+        broken = ln.is_broken
+        alt_target = ln.alternative_target
+        external = ln.external_to(datadir)
+        # Assemble status
+        status = ln.classifier
+        if external:
+            status = 'E' + status
+        else:
+            status = '-' + status
+        print "[%s]\t%s" % (status,os.path.relpath(f,datadir))
+        print "\t->: %s" % ln.target
+        print "\t->: %s" % resolved_target
+        print "\t->: %s" % alt_target
 
 def find_md5sums(datadir):
     """
@@ -930,7 +1027,7 @@ def match_solid_primary_data(datadir,*dirs):
     for dirn in dirs:
         print "Collecting symlinks from %s" % os.path.basename(datadir)
         for f in DataDir(dirn).list_symlinks():
-            target = utils.Symlink(f).resolve_target()
+            target = ArchiveSymlink(f).resolve_target()
             if target not in symlinks:
                 symlinks[target] = []
             symlinks[target].append((f,target))
