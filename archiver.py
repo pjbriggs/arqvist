@@ -21,7 +21,7 @@ import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.20'
+__version__ = '0.0.21'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -621,6 +621,8 @@ class SolidDataDir(DataDir):
                     continue
             ##print "Keeping %s" % lib.fullname
             self._libraries.append(lib)
+        # Sort the libraries by name
+        self._libraries = sorted(self._libraries,key=lambda l: l.name)
 
     @property
     def libraries(self):
@@ -643,6 +645,9 @@ class SolidDataDir(DataDir):
         """
         Report
         """
+        if len(self.libraries) == 0:
+            print "No libraries found: not a SOLiD primary data directory?"
+            return
         print "Libraries (ungrouped): %s" % \
             ', '.join(sorted([l.name for l in self.libraries]))
         print "Groups:"
@@ -911,6 +916,37 @@ def report_solid(datadir):
     """
     SolidDataDir(datadir).report()
 
+def match_solid_primary_data(datadir,dirn):
+    """
+    Try to match up SOLiD datasets with links from analysis dir
+    """
+    solid_data = SolidDataDir(datadir)
+    if len(solid_data.libraries) == 0:
+        print "No libraries found"
+        return
+    analysis_data = DataDir(dirn)
+    # Collect all symlink targets
+    targets = []
+    for f in analysis_data.list_symlinks():
+        ln = utils.Symlink(f)
+        targets.append(ln.resolve_target())
+    # Check files from Solid dir against links
+    lib_links = {}
+    for lib in solid_data.libraries:
+        print "Examining library '%s'..." % lib.name
+        lib_links[lib.name] = []
+        for fpair in lib.get_file_pairs():
+            for f in fpair:
+                if f.path in targets and f not in lib_links[lib.name]:
+                    lib_links[lib.name].append(f)
+    # Report
+    print "Primary data links from analysis dir:"
+    for group in solid_data.library_groups:
+        print "* %s *" % group
+        for lib in solid_data.libraries_in_group(group):
+            nlinks = len(lib_links[lib.name])
+            print "- %s:\t%s" % (lib.name,('ok' if nlinks >= 2 else 'missing'))
+
 #######################################################################
 # Main program
 #######################################################################
@@ -985,8 +1021,14 @@ if __name__ == '__main__':
     #
     # List primary data (SOLiD)
     p.add_command('report_solid',help="List primary data files for SOLiD",
-                  usage='%prog primary_data DIR',
+                  usage='%prog report_solid DIR',
                   description="List the SOLiD primary data files found in DIR.")
+    #
+    # Match primary data to links from analysis dir (SOLiD)
+    p.add_command('match_solid',help="Find SOLiD datasets linked from analysis dir",
+                  usage='%prog match_solid DIR ANALYSIS_DIR',
+                  description="Determine which SOLiD datasets found in DIR "
+                  "are also linked from ANALYSIS_DIR.")
     #
     # List symlinks
     p.add_command('symlinks',help="List symlinks",
@@ -1078,6 +1120,8 @@ if __name__ == '__main__':
         find_primary_data(args[0])
     elif cmd == 'report_solid':
         report_solid(args[0])
+    elif cmd == 'match_solid':
+         match_solid_primary_data(args[0],args[1])
     elif cmd == 'symlinks':
         find_symlinks(args[0])
     elif cmd == 'md5sums':
