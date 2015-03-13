@@ -21,7 +21,7 @@ import bcftbx.SolidData as solid
 from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 
-__version__ = '0.0.21'
+__version__ = '0.0.22'
 
 NGS_FILE_TYPES = ('fa',
                   'fasta',
@@ -916,36 +916,66 @@ def report_solid(datadir):
     """
     SolidDataDir(datadir).report()
 
-def match_solid_primary_data(datadir,dirn):
+def match_solid_primary_data(datadir,*dirs):
     """
-    Try to match up SOLiD datasets with links from analysis dir
+    Try to match up SOLiD datasets with links from analysis dirs
     """
+    print "Collecting data from %s" % os.path.basename(datadir)
     solid_data = SolidDataDir(datadir)
     if len(solid_data.libraries) == 0:
         print "No libraries found"
         return
-    analysis_data = DataDir(dirn)
     # Collect all symlink targets
-    targets = []
-    for f in analysis_data.list_symlinks():
-        ln = utils.Symlink(f)
-        targets.append(ln.resolve_target())
-    # Check files from Solid dir against links
+    symlinks = {}
+    for dirn in dirs:
+        print "Collecting symlinks from %s" % os.path.basename(datadir)
+        for f in DataDir(dirn).list_symlinks():
+            target = utils.Symlink(f).resolve_target()
+            if target not in symlinks:
+                symlinks[target] = []
+            symlinks[target].append((f,target))
+    # Check primary data files against links
     lib_links = {}
     for lib in solid_data.libraries:
-        print "Examining library '%s'..." % lib.name
-        lib_links[lib.name] = []
+        ##print "Examining library '%s'..." % lib.name
+        lib_links[lib.name] = { 'library': lib,
+                                'file_pairs'  : [] }
         for fpair in lib.get_file_pairs():
             for f in fpair:
-                if f.path in targets and f not in lib_links[lib.name]:
-                    lib_links[lib.name].append(f)
+                if f.path in symlinks:
+                    ##print "- %s is linked" % f.path
+                    lib_links[lib.name]['file_pairs'].append(fpair)
+                    break
     # Report
     print "Primary data links from analysis dir:"
     for group in solid_data.library_groups:
         print "* %s *" % group
         for lib in solid_data.libraries_in_group(group):
-            nlinks = len(lib_links[lib.name])
-            print "- %s:\t%s" % (lib.name,('ok' if nlinks >= 2 else 'missing'))
+            msg = []
+            # Check that there are references
+            file_pairs = lib_links[lib.name]['file_pairs']
+            if file_pairs:
+                # Reanalyse: check how many file pairs are referenced
+                if len(file_pairs) == 1:
+                    # Single file pair referenced
+                    # Check that each file is referenced
+                    ok = True
+                    for f in file_pairs[0]:
+                        if f.path not in symlinks:
+                            ok = False
+                            break
+                    if ok:
+                        msg.append("ok")
+                    else:
+                        msg.append("partially referenced")
+                else:
+                    # Multiple file pairs referenced
+                    msg.append("multiple file pairs referenced")
+            else:
+                # Nothing links to this library
+                msg.append("no references")
+            # Print message
+            print "- %s:\t%s" % (lib.name,'; '.join(msg))
 
 #######################################################################
 # Main program
