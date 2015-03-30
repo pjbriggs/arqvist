@@ -42,14 +42,15 @@ class SolidPrimaryData:
 
         """
         # Identify the type (i.e. F3 or F5)
+        fields = core.strip_extensions(f.basename).split('_')
         try:
-            f.basename.index('_F5-BC_')
+            fields.index('F5-BC')
             self._f5.append(f)
             return
         except ValueError:
             pass
         try:
-            f.basename.index('_F3_')
+            fields.index('F3')
             self._f3.append(f)
             return
         except ValueError:
@@ -85,16 +86,19 @@ class SolidPrimaryData:
         if self._f3:
             if len(self._f3) != 2:
                 # Must be exactly two F3 files
+                logging.error("%d F3 files found" % len(self._f3))
                 return False
             exts = [f.ext for f in self._f3]
         elif self._f5:
             if len(self._f5) != 2:
                 # If there are F5 files then must also
                 # have exactly 2
+                logging.error("%d F5 files found" % len(self._f3))
                 return False
             exts = [f.ext for f in self._f5]
         # Check this a csfasta/qual pair
         if 'csfasta' not in exts or 'qual' not in exts:
+            logging.error("Not csfasta/qual pair (%s)" % ','.join(exts))
             return False
         # All tests passed
         return True
@@ -240,6 +244,8 @@ class SolidDataDir(core.DataDir):
             file_set = file_sets[name]
             if not file_set.is_valid:
                 logging.error("Invalid file set '%s'" % name)
+                for f in file_set.files:
+                    print "* %s" % f.relpath(self._dirn)
         # Extract sample/library names and timestamps
         libraries = []
         for name in file_sets:
@@ -338,10 +344,11 @@ def get_generic_name(f):
     F3 and F5 reads for both csfasta and qual files.
 
     """
-    name = core.strip_extensions(f.basename)
-    for ele in ('_QV','_F5-BC','_F5','_F3'):
-        name = name.replace(ele,'')
-    return name
+    name = []
+    for field in core.strip_extensions(f.basename).split('_'):
+        if field not in ('QV','F5-BC','F5','F3'):
+            name.append(field)
+    return '_'.join(name)
 
 def get_library_names_and_timestamps(name):
     """
