@@ -82,12 +82,19 @@ class SolidPrimaryData:
         F3 pair, or one csfasta/qual F5 pair.
 
         """
-        if self._f3 and len(self._f3) != 2:
-            # Must be exactly two F3 files
-            return False
-        elif self._f5 and len(self._f5) != 2:
-            # If there are F5 files then must also
-            # have exactly 2
+        if self._f3:
+            if len(self._f3) != 2:
+                # Must be exactly two F3 files
+                return False
+            exts = [f.ext for f in self._f3]
+        elif self._f5:
+            if len(self._f5) != 2:
+                # If there are F5 files then must also
+                # have exactly 2
+                return False
+            exts = [f.ext for f in self._f5]
+        # Check this a csfasta/qual pair
+        if 'csfasta' not in exts or 'qual' not in exts:
             return False
         # All tests passed
         return True
