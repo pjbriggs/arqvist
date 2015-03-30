@@ -363,7 +363,7 @@ def get_library_names_and_timestamps(name):
         timestamp = 'unknown'
     # Attempt to extract sample and library from the path
     new_path = []
-    for field in name.split(os.sep):
+    for field in name.split(os.sep)[0:-1]:
         if field == "results.F1B1":
             continue
         elif field.startswith("libraries"):
@@ -373,6 +373,10 @@ def get_library_names_and_timestamps(name):
         elif field.startswith("primary.") or field.startswith("secondary."):
             continue
         new_path.append(field)
-    sample,library = new_path[0:2]
+    if len(new_path) < 2:
+        sample = new_path[0]
+        library = None
+    else:
+        sample,library = new_path[0:2]
     # Return
     return (sample,library,timestamp)
