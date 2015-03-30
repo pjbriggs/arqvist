@@ -266,26 +266,35 @@ def match_solid_primary_data(datadir,*dirs):
             msg = []
             # Check that there are references
             file_sets = lib_links[lib.name]['file_sets']
-            if file_sets:
+            if not file_sets:
+                # Nothing links to this library
+                msg.append("no references")
+            else:
                 # Reanalyse: check how many file sets are referenced
-                if len(file_sets) == 1:
-                    # Single file set referenced
+                ok = True
+                if len(file_sets) > 2:
+                    # Multiple file pairs referenced
+                    msg.append("multiple file pairs referenced")
+                    ok = False
+                if ok and len(file_sets) == 2:
+                    # Check that there's one F3 and one F5
+                    # file set
+                    if (file_sets[0].f3 and file_sets[1].f3) or \
+                       (file_sets[0].f5 and file_sets[1].f5):
+                        msg.append("multiple file pairs referenced")
+                        ok = False
+                if ok:
                     # Check that each file is referenced
-                    ok = True
-                    for f in file_sets[0].files:
-                        if f.path not in symlinks:
-                            ok = False
+                    # within the file sets
+                    for fset in file_sets:
+                        for f in fset.files:
+                            if f.path not in symlinks:
+                                ok = False
                             break
                     if ok:
                         msg.append("ok")
                     else:
                         msg.append("partially referenced")
-                else:
-                    # Multiple file pairs referenced
-                    msg.append("multiple file pairs referenced")
-            else:
-                # Nothing links to this library
-                msg.append("no references")
             # Print message
             print "- %s:\t%s" % (lib.name,'; '.join(msg))
 
