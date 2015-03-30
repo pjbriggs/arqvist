@@ -78,11 +78,11 @@ class SolidPrimaryData:
         """
         Check whether the file set is valid
 
-        A valid file set has one csfasta/qual F3 pair,
-        and optionally one csfasta/qual F5 pair.
+        A valid file set has either one csfasta/qual
+        F3 pair, or one csfasta/qual F5 pair.
 
         """
-        if len(self._f3) != 2:
+        if self._f3 and len(self._f3) != 2:
             # Must be exactly two F3 files
             return False
         elif self._f5 and len(self._f5) != 2:
@@ -97,11 +97,11 @@ class SolidPrimaryData:
         Check whether the file set is paired end
 
         To be paired end the file set must have
-        both F3 and F5 data
+        F5 data
 
         """
         if self.is_valid:
-            return self._f3 and self._f5
+            return bool(self._f5)
         return False
 
 class SolidLibrary:
