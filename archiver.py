@@ -37,39 +37,66 @@ def stage_data(datadir,staging_dir):
 def compress_files(datadir,extensions,dry_run=False):
     """
     Compress (bzip2) files with specified extensions
+    """
+    n_files = 0
+    n_compressed = 0
+    n_error = 0
+    n_no_action = 0
+    for f in DataDir(datadir).files(extensions=extensions):
+        n_files += 1
+        status = compress_file(f,dry_run)
+        if status == 0:
+            n_compressed += 1
+        elif status > 0:
+            n_error += 1
+    print "%d files found, %d compressed, %d failed" % (n_files,
+                                                        n_compressed,
+                                                        n_error)
+
+def compress_file(f,dry_run=False):
+    """
+    Compress (bzip2) a file
+
+    f should be an instance of ArchiveFile.
 
     TODO:
     - verify (checksum before and after?)
     - check for existing bz2 file before compressing?
 
+    Returns status:
+
+    0 indicates success
+    -1 indicates nothing to do, no error
+    >0 indicates an error
+
     """
-    n_compressed = 0
-    for f in DataDir(datadir).walk():
-        if os.path.islink(f):
-            # Skip link
-            continue
-        ext,compression = get_file_extensions(f)
-        if compression is not None:
-            # Already compressed, skip
-            continue
-        if ext not in extensions:
-            # Not specified type
-            continue
-        # Construct compression command
-        bzip2_cmd = applications.Command('bzip2',f)
-        print bzip2_cmd
-        if dry_run: continue
-        # Execute compression command
-        try:
-            status = bzip2_cmd.run_subprocess()
-            n_compressed += 1
-        except Exception,ex:
-            logging.error("Exception compressing: %s" % ex)
-            status = -1
-        if status != 0:
-            logging.error("Compression failed on %s" % f)
-            return status
-    print "Compressed %d files" % n_compressed
+    # Skip links
+    if f.is_link:
+        return -1
+    # Check if file is already compressed
+    ext,compression = get_file_extensions(f.path)
+    if compression:
+        return -1
+    # Check if a compressed version of the file
+    # already exists
+    bz2file = f.path + '.bz2'
+    if os.path.exists(bz2file):
+        logging.warning("%s: compressed version already present")
+        return
+    # Construct the compression command
+    bzip2_cmd = applications.Command('bzip2',f.path)
+    print bzip2_cmd
+    if dry_run:
+        return -1
+    # Execute the compression command
+    try:
+        status = bzip2_cmd.run_subprocess()
+    except Exception,ex:
+        logging.error("Exception compressing: %s" % ex)
+        status = 1
+    if status != 0:
+        logging.error("Compression failed for %s" % f)
+    return status
 
 def find_related(datadir):
     """
