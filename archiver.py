@@ -117,15 +117,9 @@ def find_primary_data(datadir):
     """
     Look for primary data files (csfasta, qual and fastq)
     """
-    for f in DataDir(datadir).list_files(extensions=('csfasta',
-                                                     'qual',
-                                                     'fastq',
-                                                     'xsq',)):
-        if os.path.islink(f):
-            lnk=" *"
-        else:
-            lnk=''
-        print "%s%s" % (os.path.relpath(f,datadir),lnk)
+    list_files(datadir,
+               extensions=('csfasta','qual','fastq','xsq',),
+               fields=('relpath','size'),)
 
 def find_symlinks(datadir):
     """
@@ -225,10 +219,27 @@ def find_tmp_files(datadir):
     print "%d found, total size: %s" % (nfiles,utils.format_file_size(total_size))
 
 def list_files(datadir,extensions=None,owners=None,groups=None,compression=None,
-               subdir=None,sort_keys=None,min_size=None):
+               subdir=None,sort_keys=None,min_size=None,
+               fields=('owner','group','relpath','size'),
+               delimiter='\t'):
     """
     Report files owned by specific users and/or groups
+
+    'fields' is a list of attributes to display for each file, in
+    the specified order. The available fields are:
+
+    'owner'   - User who owns the file
+    'group'   - Group the file belongs to
+    'path'    - Full path
+    'relpath' - Relative path
+    'size'    - File size (human readable)
+
     """
+    # Check the fields
+    for field in fields:
+        if field not in ('owner','group','path','relpath','size',):
+            raise Exception("Unrecognised field: '%s'" % field)
+    # Collect files and report
     nfiles = 0
     total_size = 0
     if min_size: min_size = convert_size(min_size)
@@ -240,10 +251,20 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None,
         if min_size and f.size < min_size: continue
         total_size += f.size
         nfiles += 1
-        print "%s\t%s\t%s%s\t%s" % (f.user,f.group,
-                                    f.relpath(datadir),
-                                    f.classifier,
-                                    utils.format_file_size(f.size))
+        # Assemble line from fields
+        line = []
+        for field in fields:
+            if field == 'owner':
+                line.append(f.user)
+            elif field == 'group':
+                line.append(f.group)
+            elif field == 'path':
+                line.append("%s%s" % (f.path,f.classifier))
+            elif field == 'relpath':
+                line.append("%s%s" % (f.relpath(datadir),f.classifier))
+            elif field == 'size':
+                line.append(utils.format_file_size(f.size))
+        print delimiter.join(line)
     if not nfiles:
         print "No files found"
         return
