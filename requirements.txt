@@ -1,0 +1,2 @@
+git+https://github.com/fls-bioinformatics-core/genomics.git@devel#egg=genomics
+git+https://bitbucket.org/pjbriggs/auto_process_ngs.git
