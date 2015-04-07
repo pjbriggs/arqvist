@@ -10,8 +10,10 @@ Core classes and functions
 """
 
 import os
+import bz2
 import itertools
 import logging
+import tempfile
 import bcftbx.utils as utils
 import bcftbx.Md5sum as Md5sum
 from auto_process_ngs import applications
@@ -83,6 +85,72 @@ class ArchiveFile(utils.PathInfo):
         elif self.is_executable:
             return '*'
         return ''
+
+    def compress(self,dry_run=False):
+        """
+        Compress the file
+
+        Performs compression using bzip2, and transfers
+        the timestamp from the original file to the
+        compressed version.
+
+        If 'dry_run' is True then report the compression
+        operation but don't report anything.
+              
+        Returns status:
+
+        0 indicates success
+        -1 indicates nothing to do, no error
+        >0 indicates an error
+
+        """
+        if self.compression:
+            logging.warning("%s: already compressed" % self)
+            return -1
+        # Check for existing compressed file
+        bz2file = self.path + '.bz2'
+        if os.path.exists(bz2file):
+            logging.warning("%s: compressed copy already exists" % self)
+            return -1
+        # Get MD5 checksum
+        if not self.md5:
+            self.md5 = Md5sum.md5sum(self.path)
+        checksum = self.md5
+        # Compress to a temp file
+        bzip2_cmd = applications.Command('bzip2','-c',self.path)
+        print bzip2_cmd
+        if dry_run:
+            return -1
+        fd,tmpbz2 = tempfile.mkstemp(dir=os.path.dirname(self.path),
+                                     suffix='.bz2.tmp')
+        # Execute the compression command
+        try:
+            status = bzip2_cmd.run_subprocess(log=tmpbz2)
+        except Exception,ex:
+            logging.error("Exception compressing %s: %s" % (self,ex))
+            status = 1
+        if status != 0:
+            logging.error("Compression failed for %s" % self)
+        else:
+            # Verify the checksum for the contents of the
+            # compressed file
+            uncompressed_checksum = Md5sum.md5sum(bz2.BZ2File(tmpbz2,'r'))
+            if uncompressed_checksum == checksum:
+                # Rename the compressed file, reset the timestamp
+                # and remove the source
+                os.rename(tmpbz2,bz2file)
+                os.utime(bz2file,(self.mtime,self.mtime))
+                os.remove(self.path)
+                # Update self
+                self = ArchiveFile(bz2file)
+            else:
+                logging.error("Bad checksum for compressed version of %s" % self)
+                status = 1
+        # Remove the temp file
+        if os.path.exists(tmpbz2):
+            os.remove(tmpbz2)
+        # Finish
+        return status
 
     def __repr__(self):
         return self.path
