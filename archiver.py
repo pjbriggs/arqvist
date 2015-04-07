@@ -19,7 +19,7 @@ from bcftbx.cmdparse import CommandParser
 from auto_process_ngs import applications
 from curatus import get_version
 from curatus.core import DataDir,ArchiveSymlink
-from curatus.core import get_file_extensions
+from curatus.core import get_file_extensions,get_size
 from curatus.solid import SolidDataDir
 
 __version__ = get_version()
