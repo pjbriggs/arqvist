@@ -219,7 +219,7 @@ def list_files(datadir,extensions=None,owners=None,groups=None,compression=None,
                 line.append("%s%s" % (f.relpath(datadir),f.classifier))
             elif field == 'size':
                 line.append(utils.format_file_size(f.size))
-        print delimiter.join(line)
+        print delimiter.join([str x for x in line])
     if not nfiles:
         print "No files found"
         return
