@@ -554,6 +554,7 @@ class DataDir:
         print "Newest: %s %s" % (newest.datetime.ctime(),newest.relpath(self._dirn))
         # Top-level subdirectories
         print "Top-level subdirectories:"
+        print "# Dir\tFiles\tSize\tFile types\tUsers\tPerms"
         for subdir in top_level:
             subdir_size = os.path.join(self._dirn,subdir)
             subdir_files = self.files(subdir=subdir)
@@ -564,7 +565,8 @@ class DataDir:
             grp_unreadable = reduce(lambda x,y: x or not y.is_group_readable,subdir_files,False)
             grp_unwritable = reduce(lambda x,y: x or not y.is_group_writable,subdir_files,False)
             print "- %s/\t%d\t%s\t%s\t%s\t%s" % (subdir,
-                                                 len(subdir_files),
+                                                 len(filter(lambda f: not f.is_dir,
+                                                            subdir_files)),
                                                  utils.format_file_size(get_size(subdir_size)),
                                                  ','.join(extensions),
                                                  ','.join([str(u) for u in subdir_users]),
