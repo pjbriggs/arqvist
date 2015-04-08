@@ -168,8 +168,6 @@ class TestDataDir(unittest.TestCase):
                          os.path.basename(self.dir_))
     def test_path(self):
         self.assertEqual(curatus.core.DataDir(self.dir_).path,self.dir_)
-    def test_walk(self):
-        raise NotImplementedError
     def test_files(self):
         raise NotImplementedError
     def test_list_files(self):

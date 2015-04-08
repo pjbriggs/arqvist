@@ -417,17 +417,6 @@ class DataDir:
         """
         return self._dirn
 
-    def walk(self):
-        """
-        Traverse all files in the directory
-
-        Returns:
-          Yields the name and full path for each file found.
-          
-        """
-        for f in itertools.ifilter(lambda x: not x.is_dir,self._files):
-            yield f.path
-
     def init_cache(self):
         """
         Initialise a cache subdirectory
