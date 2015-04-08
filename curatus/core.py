@@ -350,7 +350,8 @@ class DataDir:
         """
         self._files.append(f)
         # General info
-        self._nfiles += 1
+        if not f.is_dir:
+            self._nfiles += 1
         self._size += f.size
         # File and compression types
         if f.ext in NGS_FILE_TYPES and f.ext not in self._extensions:
