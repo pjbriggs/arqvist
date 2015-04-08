@@ -163,11 +163,23 @@ class TestDataDir(unittest.TestCase):
         raise NotImplementedError
     def test_write_cache(self):
         raise NotImplementedError
+    def test_len(self):
+        raise NotImplementedError
     def test_name(self):
         self.assertEqual(curatus.core.DataDir(self.dir_).name,
                          os.path.basename(self.dir_))
     def test_path(self):
         self.assertEqual(curatus.core.DataDir(self.dir_).path,self.dir_)
+    def test_size(self):
+        raise NotImplementedError
+    def test_extensions(self):
+        raise NotImplementedError
+    def test_compression(self):
+        raise NotImplementedError
+    def test_users(self):
+        raise NotImplementedError
+    def test_groups(self):
+        raise NotImplementedError
     def test_files(self):
         raise NotImplementedError
     def test_list_files(self):

@@ -296,7 +296,6 @@ class DataDir:
     Class for interrogating and manipulating an NGS data dir
 
     TODO:
-    - add a subdirectory to cache checksums etc
     - store data about platform, year?
     - store and update arbitrary metadata, and
       dump this to a README or other info file for
@@ -327,6 +326,12 @@ class DataDir:
     def __del__(self):
         self.write_cache()
 
+    def __len__(self):
+        """
+        Number of files in the directory
+        """
+        return len(filter(lambda x: not x.is_dir,self._files))
+
     @property
     def has_cache(self):
         """
@@ -334,6 +339,15 @@ class DataDir:
         """
         cachedir = os.path.join(self._dirn,'.archiver')
         return os.path.exists(cachedir)
+
+    def init_cache(self):
+        """
+        Initialise a cache subdirectory
+        """
+        cachedir = os.path.join(self._dirn,'.archiver')
+        if os.path.exists(cachedir):
+            return
+        os.mkdir(cachedir)
 
     def update_cache(self):
         """
@@ -417,14 +431,45 @@ class DataDir:
         """
         return self._dirn
 
-    def init_cache(self):
+    @property
+    def size(self):
         """
-        Initialise a cache subdirectory
+        Total size (in bytes) of the directory contents
         """
-        cachedir = os.path.join(self._dirn,'.archiver')
-        if os.path.exists(cachedir):
-            return
-        os.mkdir(cachedir)
+        return sum([f.size for f in self._files])
+
+    @property
+    def extensions(self):
+        """
+        File types (i.e. extensions) found under the directory
+        """
+        extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext.lower()
+                                                in NGS_FILE_TYPES,self._files)])
+        extensions.discard('')
+        return list(extensions)
+
+    @property
+    def compression(self):
+        """
+        Compression types found under the directory
+        """
+        compression = set([f.compression for f in self._files])
+        compression.discard('')
+        return list(compression)
+
+    @property
+    def users(self):
+        """
+        User names associated with directory contents
+        """
+        return list(set([f.user for f in self._files]))
+
+    @property
+    def groups(self):
+        """
+        Group names associated with directory contents
+        """
+        return list(set([f.group for f in self._files]))
 
     def files(self,extensions=None,owners=None,groups=None,compression=None,
               subdir=None,sort_keys=None):
@@ -518,18 +563,6 @@ class DataDir:
         """
         Report information about the directory 
         """
-        # Collect total size, users etc
-        size = sum([f.size for f in self._files])
-        users = set([f.user for f in self._files])
-        groups = set([f.group for f in self._files])
-        nfiles = len(filter(lambda x: not x.is_dir,self._files))
-        compression = set([f.compression for f in self._files])
-        compression.discard('')
-        extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext.lower()
-                                                in NGS_FILE_TYPES,self._files)])
-        extensions.discard('')
-        # Top-level directories
-        top_level = utils.list_dirs(self._dirn)
         # Oldest file modification time
         oldest = reduce(lambda x,y: x if x.timestamp < y.timestamp else y,self._files)
         newest = reduce(lambda x,y: x if x.timestamp > y.timestamp else y,self._files)
@@ -539,34 +572,30 @@ class DataDir:
         has_group_unwritable = reduce(lambda x,y: x or not y.is_group_writable,self._files,False)
         # Report information
         print "Dir   : %s" % self._dirn
-        print "Size  : %s (%s)" % (utils.format_file_size(size),
-                                   utils.format_file_size(size,'K'))
+        print "Size  : %s (%s)" % (utils.format_file_size(self.size),
+                                   utils.format_file_size(self.size,'K'))
         print "Has cache: %s" % ('yes' if self.has_cache else 'no')
-        print "#files: %d" % nfiles
-        print "File types: %s" % ', '.join([str(ext) for ext in extensions])
-        print "Compression types: %s" % ', '.join([str(c) for c in compression])
-        print "Users : %s" % ', '.join([str(u) for u in users])
-        print "Groups: %s" % ', '.join([str(g) for g in groups])
+        print "#files: %d" % len(self)
+        print "File types: %s" % ', '.join([str(ext) for ext in self.extensions])
+        print "Compression types: %s" % ', '.join([str(c) for c in self.compression])
+        print "Users : %s" % ', '.join([str(u) for u in self.users])
+        print "Groups: %s" % ', '.join([str(g) for g in self.groups])
         print "Oldest: %s %s" % (oldest.datetime.ctime(),oldest.relpath(self._dirn))
         print "Newest: %s %s" % (newest.datetime.ctime(),newest.relpath(self._dirn))
         # Top-level subdirectories
         print "Top-level subdirectories:"
         print "# Dir\tFiles\tSize\tFile types\tUsers\tPerms"
-        for subdir in top_level:
-            subdir_size = os.path.join(self._dirn,subdir)
-            subdir_files = self.files(subdir=subdir)
-            subdir_users = set([f.user for f in subdir_files])
-            extensions = set([f.ext for f in filter(lambda x: x.is_file and x.ext.lower()
-                                                    in NGS_FILE_TYPES,subdir_files)])
-            usr_unreadable = reduce(lambda x,y: x and not y.is_readable,subdir_files,False)
-            grp_unreadable = reduce(lambda x,y: x or not y.is_group_readable,subdir_files,False)
-            grp_unwritable = reduce(lambda x,y: x or not y.is_group_writable,subdir_files,False)
+        for subdir in  utils.list_dirs(self._dirn):
+            sd = DataDir(os.path.join(self._dirn,subdir))
+            #subdir_files = self.files(subdir=subdir)
+            usr_unreadable = reduce(lambda x,y: x and not y.is_readable,sd.files(),False)
+            grp_unreadable = reduce(lambda x,y: x or not y.is_group_readable,sd.files(),False)
+            grp_unwritable = reduce(lambda x,y: x or not y.is_group_writable,sd.files(),False)
             print "- %s/\t%d\t%s\t%s\t%s\t%s" % (subdir,
-                                                 len(filter(lambda f: not f.is_dir,
-                                                            subdir_files)),
-                                                 utils.format_file_size(get_size(subdir_size)),
-                                                 ','.join(extensions),
-                                                 ','.join([str(u) for u in subdir_users]),
+                                                 len(sd),
+                                                 utils.format_file_size(sd.size),
+                                                 ','.join(sd.extensions),
+                                                 ','.join([str(u) for u in sd.users]),
                                                  'u%s,g%s%s' % (('-' if usr_unreadable else 'r'),
                                                                 ('-' if grp_unreadable else 'r'),
                                                                 ('-' if grp_unwritable else 'w')))
