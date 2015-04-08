@@ -302,24 +302,27 @@ class DataDir:
       curation
 
     """
-    def __init__(self,dirn):
+    def __init__(self,dirn,files=None):
         """
         Create a new DataDir instance
         """
         self._dirn = os.path.abspath(dirn)
-        self._files = []
-        # Collect list of files
-        for d in os.walk(self._dirn):
-            if os.path.basename(d[0]) == '.archiver':
-                # Skip the cache directory
-                continue
-            for f in d[1]:
-                if f == '.archiver':
+        if files is not None:
+            self._files = [f for f in files]
+        else:
+            self._files = []
+            # Collect list of files
+            for d in os.walk(self._dirn):
+                if os.path.basename(d[0]) == '.archiver':
                     # Skip the cache directory
                     continue
-                self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
-            for f in d[2]:
-                self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
+                for f in d[1]:
+                    if f == '.archiver':
+                        # Skip the cache directory
+                        continue
+                    self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
+                for f in d[2]:
+                    self._files.append(ArchiveFile(os.path.normpath(os.path.join(d[0],f))))
         # Update cache (if present)
         self.update_cache()
 
@@ -586,8 +589,8 @@ class DataDir:
         print "Top-level subdirectories:"
         print "# Dir\tFiles\tSize\tFile types\tUsers\tPerms"
         for subdir in  utils.list_dirs(self._dirn):
-            sd = DataDir(os.path.join(self._dirn,subdir))
-            #subdir_files = self.files(subdir=subdir)
+            sd = DataDir(os.path.join(self._dirn,subdir),
+                         files=self.files(subdir=subdir))
             usr_unreadable = reduce(lambda x,y: x and not y.is_readable,sd.files(),False)
             grp_unreadable = reduce(lambda x,y: x or not y.is_group_readable,sd.files(),False)
             grp_unwritable = reduce(lambda x,y: x or not y.is_group_writable,sd.files(),False)
