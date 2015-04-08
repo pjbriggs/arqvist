@@ -123,10 +123,6 @@ def find_duplicates(*dirs):
     """
     Locate duplicated files across multiple dirs
 
-    TODO
-    - not implemented; use something like duff?
-    - also needs to deal with comparing content of compressed
-      files with uncompressed files?
     """
     # Look for duplicated MD5 checksums
     checksums = {}
@@ -148,7 +144,10 @@ def find_duplicates(*dirs):
     n_duplicates = 0
     for chksum in checksums:
         if len(checksums[chksum]) > 1:
-            print "%s\t%s" % (chksum,','.join(checksums[chksum]))
+            print "%s (%d)" % (chksum,len(checksums[chksum]))
+            for chk in checksums[chksum]:
+                print "%s" % chk
+            print
             n_duplicates += 1
     # Finished
     if not n_duplicates:
