@@ -86,6 +86,41 @@ class ArchiveFile(utils.PathInfo):
             return '*'
         return ''
 
+    def get_md5sums(self):
+        """
+        Generate MD5sums
+
+        Generate and return MD5 sums for the file and
+        for the uncompressed contents.
+
+        Sets the 'md5' and 'uncompressed_md5' properties on
+        the current instance.
+
+        Returns tuple (md5,md5_uncompressed_contents).
+
+        """
+        if self.is_link or self.is_dir:
+            # Ignore links or directories
+            return (None,None)
+        if self.md5 is None:
+            # Generate MD5 sum
+            self.md5 = Md5sum.md5sum(self.path)
+        if self.uncompressed_md5 is None:
+            # Generate MD5 for uncompressed contents
+            if not self.compression:
+                self.uncompressed_md5 = self.md5
+            elif self.compression == 'bz2':
+                fp = bz2.BZ2File(self.path,'r')
+                self.uncompressed_md5 = Md5sum.md5sum(fp)
+            elif self.compression == 'gz':
+                fp = gzip.GzipFile(self.path,'rb')
+                self.uncompressed_md5 = Md5sum.md5sum(fp)
+            else:
+                logging.warning("%s: md5sums not implemented for "
+                                "compression type '%s'"
+                                % (self,self.compression))
+        return (self.md5,self.uncompressed_md5)
+
     def compress(self,dry_run=False):
         """
         Compress the file
@@ -113,8 +148,7 @@ class ArchiveFile(utils.PathInfo):
             logging.warning("%s: compressed copy already exists" % self)
             return -1
         # Get MD5 checksum
-        if not self.md5:
-            self.md5 = Md5sum.md5sum(self.path)
+        self.get_md5sums()
         checksum = self.md5
         # Compress to a temp file
         bzip2_cmd = applications.Command('bzip2','-c',self.path)
@@ -470,26 +504,7 @@ class DataDir:
         Generate MD5sums
         """
         for f in self._files:
-            if f.is_link or f.is_dir:
-                # Ignore links or directories
-                continue
-            if f.md5 is None:
-                # Generate MD5 sum
-                f.md5 = Md5sum.md5sum(f.path)
-            if f.uncompressed_md5 is None:
-                # Generate MD5 for uncompressed contents
-                if not f.compression:
-                    f.uncompressed_md5 = f.md5
-                elif f.compression == 'bz2':
-                    fp = bz2.BZ2File(f.path,'r')
-                    f.uncompressed_md5 = Md5sum.md5sum(fp)
-                elif f.compression == 'gz':
-                    fp = gzip.GzipFile(f.path,'rb')
-                    f.uncompressed_md5 = Md5sum.md5sum(fp)
-                else:
-                    raise NotImplementedError("%s: md5sums not implemented for "
-                                              "compression type '%s'"
-                                              % (f,f.compression))
+            f.get_md5sums()
 
     def set_permissions(self,mode=None,group=None):
         """
