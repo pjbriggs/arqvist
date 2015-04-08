@@ -262,10 +262,18 @@ class ArchiveSymlink(utils.Symlink):
         Return an indicator string with the following
         components:
 
+        First character - one of:
+
         A = absolute link target
         r = relative target
+
+        Second character - one of:
+
+        - = working link
         X = broken link
         x = broken link with alternative target
+
+        For example: 'AX' = broken absolute link.
 
         Empty string indicates a regular file.
         """
@@ -622,6 +630,23 @@ def strip_extensions(path):
 def get_file_extensions(filen):
     """
     Extract extension and compression type from filename
+
+    Returns a tuple (ext,compression) where compression
+    is one of '','gz' or 'bz2' (empty string indicates no
+    compression) and ext is the trailing file extension
+    once any compression extension has been removed.
+
+    For example:
+    >>> get_file_extensions('test')
+    ('','')
+    >>> get_file_extensions('test.bz2')
+    ('','bz2')
+    >>> get_file_extensions('test.fastq')
+    ('fastq','')
+    >>> get_file_extensions('test.fastq.gz')
+    ('fastq','gz')
+    >>> get_file_extensions('test.file.fastq.gz')
+    ('fastq','gz')
 
     """
     ext = ''
