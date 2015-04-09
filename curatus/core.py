@@ -52,6 +52,7 @@ class ArchiveFile(utils.PathInfo):
         Create and populate a new ArchiveFile instance
         """
         utils.PathInfo.__init__(self,filen)
+        # !!!FIXME should be able to st_size from PathInfo!!!
         self.size = os.lstat(filen).st_size
         self.timestamp = self.mtime
         self.ext,self.compression = get_file_extensions(filen)
