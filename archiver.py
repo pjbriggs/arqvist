@@ -31,6 +31,7 @@ class Shell(cmd_.Cmd):
         cmd_.Cmd.__init__(self)
         print "Loading data for %s" % dirn
         self._datadir = DataDir(dirn)
+        print "Loaded data for %d files" % len(self._datadir)
         self.prompt = "[%s>: " % self._datadir.name
     def do_info(self,rest):
         self._datadir.info()
