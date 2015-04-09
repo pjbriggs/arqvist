@@ -2,57 +2,11 @@
 #
 # Unit tests for the curatus package
 import os
-import bz2
 import pwd
 import grp
 import unittest
-import tempfile
-import shutil
+import utils
 import curatus
-
-# utils
-#
-# Class providing utility functions for making test directories,
-# files and links for the unit tests
-class utils:
-    @classmethod
-    def make_temp_dir(self):
-        # Create a temporary directory
-        return tempfile.mkdtemp()
-    @classmethod
-    def rmdir(self,dir_):
-        # Remove a directory
-        if os.path.exists(dir_):
-            shutil.rmtree(dir_)
-    @classmethod
-    def make_subdir(self,dirn,subdir):
-        # Create subdir under dirn
-        subdir = os.path.join(dirn,subdir)
-        os.mkdir(subdir)
-        return subdir
-    @classmethod
-    def make_file(self,filen,dirn=None,text=None,compress=None):
-        # Create a new file
-        if dirn is not None:
-            filen = os.path.join(dirn,filen)
-        if compress is None:
-            fp = open(filen,'w')
-        else:
-            if compress == 'bz2':
-                fp = bz2.BZ2File(filen,'w')
-            else:
-                raise Exception("%s: compression not implemented" % compress)
-        if text is not None:
-            fp.write("%s" % text)
-        fp.close()
-        return filen
-    @classmethod
-    def make_symlink(self,link,target,dirn=None):
-        # Create a symbolic link
-        if dirn is not None:
-            link = os.path.join(dirn,link)
-        os.symlink(target,link)
-        return link
 
 #
 # Tests
