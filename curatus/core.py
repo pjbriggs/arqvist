@@ -151,6 +151,8 @@ class ArchiveFile(utils.PathInfo):
         # Get MD5 checksum
         self.get_md5sums()
         checksum = self.md5
+        # Capture timestamp for parent directory
+        parent_mtime = os.lstat(os.path.dirname(self.path)).st_mtime
         # Compress to a temp file
         bzip2_cmd = applications.Command('bzip2','-c',self.path)
         print bzip2_cmd
@@ -171,11 +173,12 @@ class ArchiveFile(utils.PathInfo):
             # compressed file
             uncompressed_checksum = Md5sum.md5sum(bz2.BZ2File(tmpbz2,'r'))
             if uncompressed_checksum == checksum:
-                # Rename the compressed file, reset the timestamp
+                # Rename the compressed file, reset the timestamps
                 # and remove the source
                 os.rename(tmpbz2,bz2file)
                 os.utime(bz2file,(self.mtime,self.mtime))
                 os.remove(self.path)
+                os.utime(os.path.dirname(self.path),(parent_mtime,parent_mtime))
                 # Update attributes
                 self.__path = bz2file
                 self.__st = os.lstat(self.__path)
