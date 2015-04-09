@@ -12,17 +12,45 @@ Archiving and curation helper utility for NGS data
 import os
 import sys
 import logging
-import bz2
-import gzip
+import cmd as cmd_
 import bcftbx.utils as utils
 from bcftbx.cmdparse import CommandParser
-from auto_process_ngs import applications
 from curatus import get_version
 from curatus.core import DataDir,ArchiveSymlink
 from curatus.core import get_file_extensions,get_size
 from curatus.solid import SolidDataDir
 
 __version__ = get_version()
+
+#######################################################################
+# Classes
+#######################################################################
+
+class Shell(cmd_.Cmd):
+    def __init__(self,dirn):
+        cmd_.Cmd.__init__(self)
+        self._datadir = DataDir(dirn)
+        self.prompt = "[%s>: " % self._datadir.name
+    def do_info(self,rest):
+        self._datadir.info()
+    def help_info(self):
+        print "info: prints summary information about DIR"
+    def do_primary_data(self,rest):
+        find_primary_data(self._datadir.path)
+    def help_primary_data(self):
+        print "primary_data: list of primary data files"
+    def do_related(self,rest):
+        find_related(self._datadir.path)
+    def help_related(self):
+        print "related: list linked external directories"
+    def do_report_solid(self,rest):
+        report_solid(self._datadir.path)
+    def help_report_solid(self):
+        print "report_solid: prints summary of SOLiD data in DIR"
+    def do_quit(self,rest):
+        return True
+    def help_quit(self):
+        print "quit: terminates the interactive command loop"
 
 #######################################################################
 # Functions
@@ -441,6 +469,11 @@ if __name__ == '__main__':
                                         dest='dry_run',default=False,
                                         help="Report actions but don't "
                                         "perform them")
+    #
+    # Interactive shell
+    p.add_command('shell',help="Run interactively",
+                  usage='%prog shell DIR',
+                  description="Run commands interactively on DIR")
     # Process command line
     cmd,options,args = p.parse_args()
 
@@ -498,4 +531,6 @@ if __name__ == '__main__':
         compress_files(args[0],args[1:],dry_run=options.dry_run)
     elif cmd == 'related':
         find_related(args[0])
+    elif cmd == 'shell':
+        Shell(args[0]).cmdloop()
         
