@@ -164,6 +164,9 @@ class TestSolidDataDir(unittest.TestCase):
     def test_report(self):
         # Not sure how to test the report method
         raise unittest.SkipTest("SolidDataDir.report not testable?")
+    def test_match_primary_data(self):
+        # Not sure how to test the matching method
+        raise unittest.SkipTest("SolidDataDir.match_primary_data not testable?")
 
 from curatus.solid import get_generic_name
 class TestGetGenericName(unittest.TestCase):
