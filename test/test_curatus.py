@@ -132,6 +132,9 @@ class TestArchiveSymlink(unittest.TestCase):
     def tearDown(self):
         # Remove test directory and contents
         utils.rmdir(self.dir_)
+    def test_path(self):
+        # Test the 'path' property
+        self.assertEqual(ArchiveSymlink(self.abslink).path,self.abslink)
     def test_external_to(self):
         self.assertFalse(ArchiveSymlink(self.abslink).external_to(self.dir_))
         self.assertTrue(ArchiveSymlink(self.extlink).external_to(self.dir_))
@@ -238,10 +241,14 @@ class TestDataDir(unittest.TestCase):
         self.assertEqual(DataDir(self.dir_).groups,[current_group])
     def test_files(self):
         raise NotImplementedError
-    def test_list_files(self):
-        raise NotImplementedError
-    def test_list_symlinks(self):
-        raise NotImplementedError
+    def test_symlinks(self):
+        # Check that symlinks are retrieved
+        lnks = DataDir(self.example_dir).symlinks()
+        self.assertEqual(len(lnks),4)
+        sorted(lnks,key=lambda lnk: lnk.path)
+        for ln,f in zip(lnks,('test1.csfasta','test1_QV.qual',
+                              'test2.csfasta','test2_QV.qual')):
+            self.assertEqual(ln.path,os.path.join(self.analysis_dir,f))
     def test_list_temp(self):
         raise NotImplementedError
     def test_list_related_dirs(self):

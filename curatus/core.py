@@ -197,6 +197,13 @@ class ArchiveSymlink(utils.Symlink):
     def __init__(self,path):
         utils.Symlink.__init__(self,path)
 
+    @property
+    def path(self):
+        """
+        Return the path for the symlink
+        """
+        return self._path
+
     def external_to(self,dirn):
         """
         Check if target is 'external' to the supplied directory
@@ -549,11 +556,12 @@ class DataDir:
                     raise NotImplementedError("Sort on '%s' not implemented" % key)
         return files
 
-    def list_symlinks(self):
+    def symlinks(self):
         """
-        Return a list of symlinks
+        Return list of symbolic links as ArchiveSymlink objects
         """
-        return [f.path for f in itertools.ifilter(lambda x: x.is_link,self._files)]
+        return [ArchiveSymlink(f.path)
+                for f in itertools.ifilter(lambda x: x.is_link,self._files)]
 
     def list_temp(self):
         """
@@ -567,8 +575,7 @@ class DataDir:
         Examine symlinks and find those pointing to external directories
         """
         external_dirs = []
-        for f in self.list_symlinks():
-            ln = ArchiveSymlink(f)
+        for ln in self.symlinks():
             resolved_target = ln.resolve_target()
             if ln.external_to(self._dirn):
                 if os.path.isdir(resolved_target):

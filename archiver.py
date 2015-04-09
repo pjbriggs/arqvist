@@ -119,7 +119,7 @@ def find_symlinks(datadir):
     """
     Examine symlinks and find those pointing outside this dir
     """
-    for f in DataDir(datadir).list_symlinks():
+    for ln in DataDir(datadir).symlinks():
         # Get link target and resolve to an absolute path
         ln = ArchiveSymlink(f)
         resolved_target = ln.resolve_target()
@@ -282,11 +282,11 @@ def match_solid_primary_data(datadir,*dirs):
     symlinks = {}
     for dirn in dirs:
         print "Collecting symlinks from %s" % os.path.basename(datadir)
-        for f in DataDir(dirn).list_symlinks():
-            target = ArchiveSymlink(f).resolve_target()
+        for ln in DataDir(dirn).symlinks():
+            target = ln.resolve_target()
             if target not in symlinks:
                 symlinks[target] = []
-            symlinks[target].append((f,target))
+            symlinks[target].append((ln,target))
     # Check primary data files against links
     lib_links = {}
     for lib in solid_data.libraries:
