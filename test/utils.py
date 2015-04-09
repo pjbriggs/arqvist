@@ -7,6 +7,13 @@ import bz2
 import tempfile
 import shutil
 
+class MockArchiveFile:
+    # Mock version of the ArchiveFile class
+    def __init__(self,path):
+        self.path = os.path.abspath(path)
+        self.basename = os.path.basename(self.path)
+        self.ext = os.path.splitext(self.path)[1].lstrip('.')
+
 def make_temp_dir():
     # Create a temporary directory
     return tempfile.mkdtemp()

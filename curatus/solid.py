@@ -27,8 +27,9 @@ class SolidPrimaryData:
     def __init__(self,*files):
         """Create a new SolidPrimaryData instance
 
-        Optionally also populate with one or more
-        files given in the argument list.
+        Optionally also populate with one or more files
+        (as ArchiveFile instances) supplied via the
+        argument list.
 
         """
         self._f3 = []
@@ -120,6 +121,14 @@ class SolidLibrary:
     Utility class for holding data about a SOLiD library
     """
     def __init__(self,sample,library):
+        """
+        Create a new SolidLibrary instance
+
+        'sample' is a sample name, 'library' is a library
+        name. If there is no name for one or the other then
+        use None.
+
+        """
         self._sample_name = ('' if sample is None else str(sample))
         self._library_name = ('' if library is None else str(library))
         self._file_sets = {}
@@ -209,6 +218,10 @@ class SolidDataDir(core.DataDir):
     examining SOLiD data
     """
     def __init__(self,dirn):
+        """
+        Create a new SolidDataDir instance for dirn
+
+        """
         # Init base class
         core.DataDir.__init__(self,dirn)
         self._primary_data = None
