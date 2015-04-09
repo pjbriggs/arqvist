@@ -549,17 +549,6 @@ class DataDir:
                     raise NotImplementedError("Sort on '%s' not implemented" % key)
         return files
 
-    def list_files(self,extensions=None,owners=None,groups=None,compression=None,
-                   subdir=None,sort_keys=None):
-        """
-        Return a (filtered) list of file paths
-        """
-        return [f.path for f in self.files(extensions=extensions,
-                                           owners=owners,groups=groups,
-                                           compression=compression,
-                                           subdir=subdir,
-                                           sort_keys=sort_keys)]
-
     def list_symlinks(self):
         """
         Return a list of symlinks
