@@ -175,8 +175,11 @@ class ArchiveFile(utils.PathInfo):
                 os.rename(tmpbz2,bz2file)
                 os.utime(bz2file,(self.mtime,self.mtime))
                 os.remove(self.path)
-                # Update self
-                self = ArchiveFile(bz2file)
+                # Update attributes
+                self.__path = bz2file
+                self.__st = os.lstat(self.__path)
+                self.compression = 'bz2'
+                self.md5 = None
             else:
                 logging.error("Bad checksum for compressed version of %s" % self)
                 status = 1
@@ -570,7 +573,7 @@ class DataDir:
         return [f.path for f in itertools.ifilter(lambda x: bool(x.basename.count('tmp')),
                                                   self._files)]
 
-    def list_related_dirs(self):
+    def related_dirs(self):
         """
         Examine symlinks and find those pointing to external directories
         """

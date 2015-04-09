@@ -100,7 +100,7 @@ def find_related(datadir):
     - functionality not implemented, should be just 'symlinks'?
 
     """
-    external_dirs = DataDir(datadir).list_related_dirs()
+    external_dirs = DataDir(datadir).related_dirs()
     if external_dirs:
         for d in external_dirs:
             print d

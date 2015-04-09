@@ -240,19 +240,45 @@ class TestDataDir(unittest.TestCase):
         self.assertNotEqual(None,current_group)
         self.assertEqual(DataDir(self.dir_).groups,[current_group])
     def test_files(self):
-        raise NotImplementedError
+        # Check that files and dirs are retrieved
+        d = DataDir(self.example_dir)
+        # Retrieve all files
+        self.assertEqual(len(d.files()),15)
+        # Retrieve just SOLiD files
+        self.assertEqual(len(d.files(extensions=('csfasta','qual',))),8)
+        # Retrieve just bzipped files
+        self.assertEqual(len(d.files(compression=('bz2',))),2)
+        # Retrive just files in a subdir
+        self.assertEqual(len(d.files(subdir=('analysis',))),10)
+        # Retrive files owned by different users
+        current_user = pwd.getpwuid(os.getuid()).pw_name
+        self.assertNotEqual(None,current_user)
+        self.assertEqual(len(d.files(owners=(current_user,))),15)
+        self.assertEqual(len(d.files(owners=('nobody',))),0)
+        # Retrive files belonging to different groups
+        current_group = grp.getgrgid(pwd.getpwnam(current_user).pw_gid).gr_name
+        self.assertNotEqual(None,current_group)
+        self.assertEqual(len(d.files(groups=(current_group,))),15)
+        self.assertEqual(len(d.files(groups=('nogroup',))),0)
     def test_symlinks(self):
         # Check that symlinks are retrieved
         lnks = DataDir(self.example_dir).symlinks()
         self.assertEqual(len(lnks),4)
-        sorted(lnks,key=lambda lnk: lnk.path)
+        lnks = sorted(lnks,key=lambda lnk: lnk.path)
         for ln,f in zip(lnks,('test1.csfasta','test1_QV.qual',
                               'test2.csfasta','test2_QV.qual')):
             self.assertEqual(ln.path,os.path.join(self.analysis_dir,f))
     def test_list_temp(self):
         raise NotImplementedError
-    def test_list_related_dirs(self):
-        raise NotImplementedError
+    def test_related_dirs(self):
+        # Check that any externally link directories are identified
+        # No externally linked dirs relative to top-level
+        external = DataDir(self.example_dir).related_dirs()
+        self.assertEqual(len(external),0)
+        # Analysis dir links to primary data dir
+        external = DataDir(self.analysis_dir).related_dirs()
+        self.assertEqual(len(external),1)
+        self.assertEqual(external[0],self.primary_data_dir)
     def test_md5sums(self):
         raise NotImplementedError
     def test_set_permissions(self):
