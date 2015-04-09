@@ -29,6 +29,7 @@ __version__ = get_version()
 class Shell(cmd_.Cmd):
     def __init__(self,dirn):
         cmd_.Cmd.__init__(self)
+        print "Loading data for %s" % dirn
         self._datadir = DataDir(dirn)
         self.prompt = "[%s>: " % self._datadir.name
     def do_info(self,rest):
@@ -49,6 +50,14 @@ class Shell(cmd_.Cmd):
         print "report_solid: prints summary of SOLiD data in DIR"
     def do_quit(self,rest):
         return True
+    def do_stage(self,rest):
+        staging_dir = os.path.abspath(rest)
+        stage_data(self._datadir.path,staging_dir)
+        dirn = os.path.join(staging_dir,self._datadir.name)
+        print "Switching to %s" % dirn
+        self._datadir = DataDir(dirn)
+    def help_stage(self):
+        print "stage NEWDIR: make a staging copy of DIR under NEWDIR"
     def help_quit(self):
         print "quit: terminates the interactive command loop"
 
