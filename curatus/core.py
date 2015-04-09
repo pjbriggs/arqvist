@@ -633,16 +633,6 @@ class DataDir:
         print "- unreadable by group: %s" % print_yes_no(self.grp_unreadable)
         print "- unwritable by group: %s" % print_yes_no(self.grp_unwritable)
         print "#Temp files: %d" % len(self.list_temp())
-        # Related directories
-        ## commented out for now - for solid data this can create a long
-        ## but not very useful list
-        #related = self.list_related_dirs()
-        #print "Related directories:"
-        #if related:
-        #    for d in related:
-        #        print "- %s" % d
-        #else:
-        #    print "- None found"
 
     def copy_to(self,working_dir,chmod=None,dry_run=False):
         """Copy (rsync) data dir to another location
