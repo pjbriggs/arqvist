@@ -41,14 +41,27 @@ class Shell(cmd_.Cmd):
         find_primary_data(self._datadir.path)
     def help_primary_data(self):
         print "primary_data: list of primary data files"
+    def do_symlinks(self,rest):
+        find_symlinks(self._datadir.path)
+    def help_symlinks(self):
+        print "symlinks: list of symbolic links"
     def do_related(self,rest):
         find_related(self._datadir.path)
     def help_related(self):
         print "related: list linked external directories"
     def do_report_solid(self,rest):
-        report_solid(self._datadir.path)
+        SolidDataDir(self._datadir.path).report()
     def help_report_solid(self):
         print "report_solid: prints summary of SOLiD data in DIR"
+    def do_match_solid(self,rest):
+        dirs = [os.path.abspath(d) for d in rest.split()]
+        if len(dirs) < 1:
+            print "Need to supply at least one analysis dir"
+            return
+        SolidDataDir(self._datadir.path).match_primary_data(*dirs)
+    def help_match_solid(self):
+        print "match_solid DIR1 [DIR2...]: check symlinks to primary "
+        "data from analysis dirs"
     def do_quit(self,rest):
         return True
     def do_stage(self,rest):
@@ -121,7 +134,6 @@ def find_symlinks(datadir):
     """
     for ln in DataDir(datadir).symlinks():
         # Get link target and resolve to an absolute path
-        ln = ArchiveSymlink(f)
         resolved_target = ln.resolve_target()
         # Check link status
         absolute = ln.is_absolute
@@ -134,7 +146,7 @@ def find_symlinks(datadir):
             status = 'E' + status
         else:
             status = '-' + status
-        print "[%s]\t%s" % (status,os.path.relpath(f,datadir))
+        print "[%s]\t%s" % (status,os.path.relpath(ln.path,datadir))
         print "\t->: %s" % ln.target
         print "\t->: %s" % resolved_target
         print "\t->: %s" % alt_target
@@ -267,77 +279,6 @@ def report_solid(datadir):
     """
     Try to group primary data and sort into samples etc for SOLiD runs
     """
-    SolidDataDir(datadir).report()
-
-def match_solid_primary_data(datadir,*dirs):
-    """
-    Try to match up SOLiD datasets with links from analysis dirs
-    """
-    print "Collecting data from %s" % os.path.basename(datadir)
-    solid_data = SolidDataDir(datadir)
-    if len(solid_data.libraries) == 0:
-        print "No libraries found"
-        return
-    # Collect all symlink targets
-    symlinks = {}
-    for dirn in dirs:
-        print "Collecting symlinks from %s" % os.path.basename(datadir)
-        for ln in DataDir(dirn).symlinks():
-            target = ln.resolve_target()
-            if target not in symlinks:
-                symlinks[target] = []
-            symlinks[target].append((ln,target))
-    # Check primary data files against links
-    lib_links = {}
-    for lib in solid_data.libraries:
-        ##print "Examining library '%s'..." % lib.name
-        lib_links[lib.name] = { 'library': lib,
-                                'file_sets'  : [] }
-        for fset in lib.get_file_sets():
-            for f in fset.files:
-                if f.path in symlinks:
-                    ##print "- %s is linked" % f.path
-                    lib_links[lib.name]['file_sets'].append(fset)
-                    break
-    # Report
-    print "Primary data links from analysis dir:"
-    for group in solid_data.library_groups:
-        print "* %s *" % group
-        for lib in solid_data.libraries_in_group(group):
-            msg = []
-            # Check that there are references
-            file_sets = lib_links[lib.name]['file_sets']
-            if not file_sets:
-                # Nothing links to this library
-                msg.append("no references")
-            else:
-                # Reanalyse: check how many file sets are referenced
-                ok = True
-                if len(file_sets) > 2:
-                    # Multiple file pairs referenced
-                    msg.append("multiple file pairs referenced")
-                    ok = False
-                if ok and len(file_sets) == 2:
-                    # Check that there's one F3 and one F5
-                    # file set
-                    if (file_sets[0].f3 and file_sets[1].f3) or \
-                       (file_sets[0].f5 and file_sets[1].f5):
-                        msg.append("multiple file pairs referenced")
-                        ok = False
-                if ok:
-                    # Check that each file is referenced
-                    # within the file sets
-                    for fset in file_sets:
-                        for f in fset.files:
-                            if f.path not in symlinks:
-                                ok = False
-                            break
-                    if ok:
-                        msg.append("ok")
-                    else:
-                        msg.append("partially referenced")
-            # Print message
-            print "- %s:\t%s" % (lib.name,'; '.join(msg))
 
 #######################################################################
 # Main program
@@ -519,9 +460,13 @@ if __name__ == '__main__':
     elif cmd == 'primary_data':
         find_primary_data(args[0])
     elif cmd == 'report_solid':
-        report_solid(args[0])
+        SolidDataDir(args[0]).report()
     elif cmd == 'match_solid':
-         match_solid_primary_data(args[0],args[1])
+        if len(args) < 2:
+            sys.stderr.write("Need to supply a SOLiD data dir and at "
+                             "least one analysis directory\n")
+            sys.exit(1)
+        SolidDataDir(args[0]).match_primary_data(*args[1:])
     elif cmd == 'symlinks':
         find_symlinks(args[0])
     elif cmd == 'md5sums':

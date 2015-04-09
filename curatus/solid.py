@@ -339,6 +339,87 @@ class SolidDataDir(core.DataDir):
                     for f in file_set.f5:
                         print "- %s" % f.relpath(self._dirn)
 
+    def match_primary_data(self,*analysis_dirs):
+        """
+        Match up primary data with links from analysis dirs
+
+        dirs is a list of analysis directory names which
+        should contain symbolic links to primary data files
+        in this SOLiD data directory.
+
+        This method reports for each library whether the
+        primary data is referenced.
+
+        """
+        # Check there is primary data here
+        if len(self.libraries) == 0:
+            print "%s: doesn't appear to contain any libraries" % self.name
+            return
+        # Collect all symlink targets from analysis dirs
+        symlinks = {}
+        for dirn in analysis_dirs:
+            dirn = os.path.abspath(dirn)
+            if not os.path.isdir(dirn):
+                logging.error("No directory %s" % dirn)
+                continue
+            print "Collecting symlinks from %s" % os.path.basename(dirn)
+            for ln in core.DataDir(dirn).symlinks():
+                target = ln.resolve_target()
+                if target not in symlinks:
+                    symlinks[target] = []
+                symlinks[target].append((ln,target))
+        # Check primary data files against links
+        lib_links = {}
+        for lib in self.libraries:
+            ##print "Examining library '%s'..." % lib.name
+            lib_links[lib.name] = { 'library': lib,
+                                    'file_sets'  : [] }
+            for fset in lib.get_file_sets():
+                for f in fset.files:
+                    if f.path in symlinks:
+                        ##print "- %s is linked" % f.path
+                        lib_links[lib.name]['file_sets'].append(fset)
+                        break
+        # Report
+        print "Primary data links from analysis dir for each group:"
+        for group in self.library_groups:
+            print "* %s *" % group
+            for lib in self.libraries_in_group(group):
+                msg = []
+                # Check that there are references
+                file_sets = lib_links[lib.name]['file_sets']
+                if not file_sets:
+                    # Nothing links to this library
+                    msg.append("no references")
+                else:
+                    # Reanalyse: check how many file sets are referenced
+                    ok = True
+                    if len(file_sets) > 2:
+                        # Multiple file pairs referenced
+                        msg.append("multiple file pairs referenced")
+                        ok = False
+                    if ok and len(file_sets) == 2:
+                        # Check that there's one F3 and one F5
+                        # file set
+                        if (file_sets[0].f3 and file_sets[1].f3) or \
+                           (file_sets[0].f5 and file_sets[1].f5):
+                            msg.append("multiple file pairs referenced")
+                            ok = False
+                    if ok:
+                        # Check that each file is referenced
+                        # within the file sets
+                        for fset in file_sets:
+                            for f in fset.files:
+                                if f.path not in symlinks:
+                                    ok = False
+                                    break
+                        if ok:
+                            msg.append("ok")
+                        else:
+                            msg.append("partially referenced")
+                # Print message
+                print "- %s:\t%s" % (lib.name,'; '.join(msg))
+
 #######################################################################
 # Functions
 #######################################################################
