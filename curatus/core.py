@@ -11,6 +11,7 @@ Core classes and functions
 
 import os
 import bz2
+import fnmatch
 import itertools
 import logging
 import tempfile
@@ -531,7 +532,7 @@ class DataDir:
         return self._groups
 
     def files(self,extensions=None,owners=None,groups=None,compression=None,
-              subdir=None,sort_keys=None):
+              subdir=None,pattern=None,sort_keys=None):
         """
         Return a (filtered) list of ArchiveFile objects
         """
@@ -550,6 +551,10 @@ class DataDir:
         if subdir:
             files = [f for f in itertools.ifilter(lambda x:
                                                   x.relpath(self._dirn).startswith(subdir),
+                                                  files)]
+        if pattern:
+            files = [f for f in itertools.ifilter(lambda x: fnmatch.fnmatch(x.basename,
+                                                                            pattern),
                                                   files)]
         if sort_keys:
             for key in sort_keys:

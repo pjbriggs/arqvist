@@ -214,6 +214,8 @@ class TestDataDir(unittest.TestCase):
         self.assertNotEqual(None,current_group)
         self.assertEqual(len(d.files(groups=(current_group,))),15)
         self.assertEqual(len(d.files(groups=('nogroup',))),0)
+        # Retrieve files matching a glob-style pattern
+        self.assertEqual(len(d.files(pattern='*_analysis*')),2)
     def test_symlinks(self):
         # Check that symlinks are retrieved
         lnks = DataDir(self.example_dir).symlinks()
