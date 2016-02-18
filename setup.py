@@ -28,9 +28,9 @@ setup(name = "archiver",
       license = 'Artistic License',
       # Pull in dependencies
       # See http://stackoverflow.com/questions/19738085/why-isnt-setup-py-dependency-links-doing-anything for info on use of 'dependency_links'git+https://bitbucket.org/pjbriggs/auto_process_ngs.git'
-      dependency_links=['git+https://github.com/fls-bioinformatics-core/genomics.git@devel',
+      dependency_links=['git+https://github.com/fls-bioinformatics-core/genomics.git',
                         'git+https://bitbucket.org/pjbriggs/auto_process_ngs.git'],
-      install_requires = ['genomics',
+      install_requires = ['genomics-bcftbx',
                           'auto_process_ngs'],
       # Enable 'python setup.py test'
       test_suite='nose.collector',
