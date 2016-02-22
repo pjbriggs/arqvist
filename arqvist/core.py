@@ -1,6 +1,6 @@
 #!/bin/env python
 #
-#     curatus/core.py: core classes and functions
+#     core.py: core classes and functions
 #     Copyright (C) University of Manchester 2015 Peter Briggs
 #
 

@@ -1,7 +1,7 @@
 #!/bin/env python
 #
 #     archiver.py: utility for archiving and curating NGS data
-#     Copyright (C) University of Manchester 2015 Peter Briggs
+#     Copyright (C) University of Manchester 2015-16 Peter Briggs
 #
 
 """
@@ -15,11 +15,11 @@ import logging
 import cmd as cmd_
 import bcftbx.utils as utils
 from bcftbx.cmdparse import CommandParser
-from curatus import get_version
-from curatus.core import DataDir,ArchiveSymlink
-from curatus.core import get_file_extensions,get_size
-from curatus.solid import SolidDataDir
+from .core import DataDir,ArchiveSymlink
+from .core import get_file_extensions,get_size
+from .solid import SolidDataDir
 
+from . import get_version
 __version__ = get_version()
 
 #######################################################################
@@ -284,7 +284,7 @@ def report_solid(datadir):
 # Main program
 #######################################################################
 
-if __name__ == '__main__':
+def main(args=None):
 
     # Set up the command line parser
     p = CommandParser(description="Utility for archiving and curating "

@@ -1,17 +1,17 @@
 #!/bin/env python
 #
-# Unit tests for the curatus package
+# Unit tests for the arqvist package
 import os
 import pwd
 import grp
 import unittest
 import utils
-import curatus
+import arqvist
 
 #
 # Tests
 
-from curatus.core import ArchiveFile
+from arqvist.core import ArchiveFile
 class TestArchiveFile(unittest.TestCase):
     def setUp(self):
         # Create test directory
@@ -28,7 +28,7 @@ class TestArchiveFile(unittest.TestCase):
         self.assertEqual(ArchiveFile(self.dir_).classifier,'/')
     def test_get_md5sums(self):
         filen = utils.make_file('test.txt',dirn=self.dir_,text="This is some text")
-        f = curatus.core.ArchiveFile(filen)
+        f = arqvist.core.ArchiveFile(filen)
         self.assertEqual(f.md5,None)
         self.assertEqual(f.uncompressed_md5,None)
         self.assertEqual(f.get_md5sums(),('97214f63224bc1e9cc4da377aadce7c7',
@@ -59,7 +59,7 @@ class TestArchiveFile(unittest.TestCase):
         f = ArchiveFile(filen)
         self.assertEqual(str(f),filen)
 
-from curatus.core import ArchiveSymlink
+from arqvist.core import ArchiveSymlink
 class TestArchiveSymlink(unittest.TestCase):
     def setUp(self):
         # Create test directory
@@ -116,7 +116,7 @@ class TestArchiveSymlink(unittest.TestCase):
         self.assertEqual(ArchiveSymlink(self.brklink).classifier,'rX')
         self.assertEqual(ArchiveSymlink(self.altlink).classifier,'rx')
 
-from curatus.core import DataDir
+from arqvist.core import DataDir
 class TestDataDir(unittest.TestCase):
     def setUp(self):
         # Create test directory
@@ -244,17 +244,17 @@ class TestDataDir(unittest.TestCase):
     def test_copy_to(self):
         raise NotImplementedError
 
-from curatus.core import strip_extensions
+from arqvist.core import strip_extensions
 class TestStripExtensions(unittest.TestCase):
-    # Tests for the curatus.core.strip_extensions function
+    # Tests for the arqvist.core.strip_extensions function
     def test_strip_extensions(self):
         self.assertEqual(strip_extensions('test'),'test')
         self.assertEqual(strip_extensions('test.bz2'),'test')
         self.assertEqual(strip_extensions('test.fastq.bz2'),'test')
 
-from curatus.core import get_file_extensions
+from arqvist.core import get_file_extensions
 class TestGetFileExtensions(unittest.TestCase):
-    # Tests for the curatus.core.get_file_extensions function
+    # Tests for the arqvist.core.get_file_extensions function
     def test_get_file_extensions(self):
         self.assertEqual(get_file_extensions('test'),('',''))
         self.assertEqual(get_file_extensions('test.bz2'),('','bz2'))
@@ -262,9 +262,9 @@ class TestGetFileExtensions(unittest.TestCase):
         self.assertEqual(get_file_extensions('test.fastq.gz'),('fastq','gz'))
         self.assertEqual(get_file_extensions('test.file.fastq.gz'),('fastq','gz'))
 
-from curatus.core import get_size
+from arqvist.core import get_size
 class TestGetSize(unittest.TestCase):
-    # Tests for the curatus.core.get_size function
+    # Tests for the arqvist.core.get_size function
     def setUp(self):
         # Create test directory
         self.dir_ = utils.make_temp_dir()
@@ -280,9 +280,9 @@ class TestGetSize(unittest.TestCase):
         filen = utils.make_file('test.txt',dirn=self.dir_,text="This is some text")
         self.assertEqual(get_size(self.dir_),os.stat(filen).st_size + 4096)
 
-from curatus.core import convert_size
+from arqvist.core import convert_size
 class TestConvertSize(unittest.TestCase):
-    # Tests for the curatus.core.convert_size function
+    # Tests for the arqvist.core.convert_size function
     def test_convert_size(self):
         self.assertEqual(convert_size('1b'),1.0)
         self.assertEqual(convert_size('1K'),1024.0)

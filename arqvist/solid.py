@@ -1,6 +1,6 @@
 #!/bin/env python
 #
-#     curatus/solid.py: SOLiD-specific classes and functions
+#     solid.py: SOLiD-specific classes and functions
 #     Copyright (C) University of Manchester 2015 Peter Briggs
 #
 

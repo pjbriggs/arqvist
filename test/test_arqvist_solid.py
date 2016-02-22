@@ -1,15 +1,15 @@
 #!/bin/env python
 #
-# Unit tests for the curatus/solid package
+# Unit tests for the arqvist/solid package
 import os
 import unittest
 import utils
-import curatus
+import arqvist
 
 #
 # Tests
 
-from curatus.solid import SolidPrimaryData
+from arqvist.solid import SolidPrimaryData
 class TestSolidPrimaryData(unittest.TestCase):
     def setUp(self):
         # Create and populate a SolidPrimaryData instance
@@ -74,7 +74,7 @@ class TestSolidPrimaryData(unittest.TestCase):
         self.assertFalse(SolidPrimaryData(
             utils.MockArchiveFile('test1_F5-BC.csfasta')).paired_end)
 
-from curatus.solid import SolidLibrary
+from arqvist.solid import SolidLibrary
 class TestSolidLibrary(unittest.TestCase):
     def test_sample_name(self):
         # Create libraries and check the sample names
@@ -134,7 +134,7 @@ class TestSolidLibrary(unittest.TestCase):
         # Retrieve all file sets
         self.assertEqual(lib.get_file_sets(),[fs1])
 
-from curatus.solid import SolidDataDir
+from arqvist.solid import SolidDataDir
 from bcftbx.test.test_SolidData import TestUtils
 class TestSolidDataDir(unittest.TestCase):
     def setUp(self):
@@ -168,7 +168,7 @@ class TestSolidDataDir(unittest.TestCase):
         # Not sure how to test the matching method
         raise unittest.SkipTest("SolidDataDir.match_primary_data not testable?")
 
-from curatus.solid import get_generic_name
+from arqvist.solid import get_generic_name
 class TestGetGenericName(unittest.TestCase):
     def test_get_generic_name(self):
         self.assertEqual(get_generic_name(utils.MockArchiveFile(
@@ -185,7 +185,7 @@ class TestGetGenericName(unittest.TestCase):
             "solid0127_20120117_PE_BC_SH_JC1_pool_F5-BC_JC_SEQ30")),
                          "solid0127_20120117_PE_BC_SH_JC1_pool_JC_SEQ30")
 
-from curatus.solid import get_library_names_and_timestamps
+from arqvist.solid import get_library_names_and_timestamps
 class TesTGetLibraryNamesAndTimestamps(unittest.TestCase):
     def test_get_library_names_and_timestamps(self):
         smp,lib,ts = get_library_names_and_timestamps("LH_POOL/results.F1B1/libraries/"

@@ -1,5 +1,5 @@
-archiver: archive & curate NGS data
-===================================
+arqvist: explore & curate NGS data
+==================================
 
 Aims
 ****
@@ -15,10 +15,10 @@ contents, and safely remove files that are no longer required.
 Dependencies
 ************
 
-Depends on the `bcftbx` and `auto_process_ngs` modules.
+Depends on the ``genomics-bcftbx`` and ``auto_process_ngs`` modules.
 
-To create test data use the `make_mock_solid_dir.py` utility from the
-`genomics` repo.
+To create test data use the ``make_mock_solid_dir.py`` utility from the
+``genomics`` repo.
 
 Protocols
 *********

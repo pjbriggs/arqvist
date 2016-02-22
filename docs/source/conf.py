@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# archiver documentation build configuration file, created by
+# arqvist documentation build configuration file, created by
 # sphinx-quickstart on Tue Feb 24 12:09:49 2015.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -40,8 +40,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'archiver'
-copyright = u'2015, Peter Briggs'
+project = u'arqvist'
+copyright = u'2015-2016, Peter Briggs'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -164,7 +164,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'archiverdoc'
+htmlhelp_basename = 'arqvistdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -183,7 +183,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'archiver.tex', u'archiver Documentation',
+  ('index', 'arqvist.tex', u'arqvist Documentation',
    u'Peter Briggs', 'manual'),
 ]
 
@@ -213,7 +213,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'archiver', u'archiver Documentation',
+    ('index', 'arqvist', u'arqvist Documentation',
      [u'Peter Briggs'], 1)
 ]
 
@@ -227,8 +227,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'archiver', u'archiver Documentation',
-   u'Peter Briggs', 'archiver', 'One line description of project.',
+  ('index', 'arqvist', u'arqvist Documentation',
+   u'Peter Briggs', 'arqvist', 'One line description of project.',
    'Miscellaneous'),
 ]
 
