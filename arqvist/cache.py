@@ -15,6 +15,22 @@ import bcftbx.utils as utils
 
 class DataDirCache:
     """
+    Cache info on contents of directory
+
+    Usage:
+
+    >>> c = DataDirCache('Downloads')
+
+    The cache data is held in memory but can be
+    saved to disk (within a '.arqvist' directory
+    using:
+
+    >>> c.save()
+
+    When the DataDirCache object is reinstantiated
+    the data will be read from the cache
+    automatically.
+
     """
     
     def __init__(self,dirn):
