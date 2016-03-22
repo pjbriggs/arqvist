@@ -181,8 +181,11 @@ class ArchiveFile(utils.PathInfo):
                 os.remove(self.path)
                 os.utime(os.path.dirname(self.path),(parent_mtime,parent_mtime))
                 # Update attributes
-                self.__path = bz2file
-                self.__st = os.lstat(self.__path)
+                # FIXME have to explicitly deal with name mangling
+                # in order to update the path in the superclass
+                # - this should really be done in a better way
+                self._PathInfo__path = bz2file
+                self._PathInfo__st = os.lstat(self.path)
                 self.compression = 'bz2'
                 self.md5 = None
             else:
