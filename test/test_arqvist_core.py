@@ -145,14 +145,14 @@ class TestDataDir(unittest.TestCase):
     def tearDown(self):
         # Remove test directory and contents
         utils.rmdir(self.dir_)
-    def test_init_cache(self):
-        raise NotImplementedError
-    def test_has_cache(self):
-        raise NotImplementedError
-    def test_update_cache(self):
-        raise NotImplementedError
-    def test_write_cache(self):
-        raise NotImplementedError
+    ##def test_init_cache(self):
+    ##    raise NotImplementedError
+    ##def test_has_cache(self):
+    ##    raise NotImplementedError
+    ##def test_update_cache(self):
+    ##    raise NotImplementedError
+    ##def test_write_cache(self):
+    ##    raise NotImplementedError
     def test_len(self):
         # Check that correct number of files is returned
         self.assertEqual(len(DataDir(self.primary_data_dir)),4)
@@ -164,8 +164,8 @@ class TestDataDir(unittest.TestCase):
     def test_path(self):
         self.assertEqual(DataDir(self.example_dir).path,
                          self.example_dir)
-    def test_size(self):
-        raise NotImplementedError
+    ##def test_size(self):
+    ##    raise NotImplementedError
     def test_extensions(self):
         # Check file extensions in primary data dir
         extensions = DataDir(self.primary_data_dir).extensions
@@ -224,8 +224,8 @@ class TestDataDir(unittest.TestCase):
         for ln,f in zip(lnks,('test1.csfasta','test1_QV.qual',
                               'test2.csfasta','test2_QV.qual')):
             self.assertEqual(ln.path,os.path.join(self.analysis_dir,f))
-    def test_list_temp(self):
-        raise NotImplementedError
+    ##def test_list_temp(self):
+    ##    raise NotImplementedError
     def test_related_dirs(self):
         # Check that any externally link directories are identified
         # No externally linked dirs relative to top-level
@@ -235,14 +235,14 @@ class TestDataDir(unittest.TestCase):
         external = DataDir(self.analysis_dir).related_dirs()
         self.assertEqual(len(external),1)
         self.assertEqual(external[0],self.primary_data_dir)
-    def test_md5sums(self):
-        raise NotImplementedError
-    def test_set_permissions(self):
-        raise NotImplementedError
+    ##def test_md5sums(self):
+    ##    raise NotImplementedError
+    ##def test_set_permissions(self):
+    ##    raise NotImplementedError
     def test_info(self):
         raise unittest.SkipTest("DataDir.info not currently testable")
-    def test_copy_to(self):
-        raise NotImplementedError
+    ##def test_copy_to(self):
+    ##    raise NotImplementedError
 
 from arqvist.core import strip_extensions
 class TestStripExtensions(unittest.TestCase):
