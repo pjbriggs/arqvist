@@ -32,7 +32,8 @@ setup(
     license = 'Artistic License',
     # Pull in dependencies
     install_requires = ['genomics-bcftbx',
-                        'auto_process_ngs'],
+                        'auto_process_ngs',
+                        'python-dateutil'],
     # Enable 'python setup.py test'
     test_suite='nose.collector',
     tests_require=['nose'],

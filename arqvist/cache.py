@@ -10,64 +10,99 @@ Caching classes and functions
 """
 
 import os
+import datetime
+import dateutil.parser
+import tempfile
+import shutil
 from .core import ArchiveFile
-import bcftbx.utils as utils
+from .core import get_file_extensions
+from bcftbx.utils import AttributeDictionary
+import bcftbx.utils as bcfutils
 
-class DataDirCache:
+
+FILE_ATTRIBUTES = ('basename',
+                   'type',
+                   'size',
+                   'timestamp',
+                   'mode',
+                   'owner',
+                   'group',
+                   'ext',
+                   'compression',
+                   'md5',
+                   'uncompressed_md5',
+                   'relpath',)
+
+class DirCache:
     """
     Cache info on contents of directory
 
     Usage:
 
-    >>> c = DataDirCache('Downloads')
+    >>> c = DirCache('Downloads')
 
-    The cache data is held in memory but can be
-    saved to disk (within a '.arqvist' directory
-    using:
+    The cache data is held in memory but can be saved to disk
+    (within a '.arqvist' directory under the top-level
+    directory) using:
 
     >>> c.save()
 
-    When the DataDirCache object is reinstantiated
-    the data will be read from the cache
-    automatically.
+    When the DirCache object is reinstantiated the data will
+    be read from the cache automatically.
+
+    A list of files in the cache can be obtained using the
+    'files' method, e.g.:
+
+    >>> for f in c.files:
+    >>> ...
+
+    Data on each file in the cache are stored as CacheFile
+    instances which can be retrieved as keys of the DirCache
+    instance, e.g.:
+
+    >>> f = c['myfile']
+
+    Note that the keys are relative paths to the original
+    source directory.
+
+    Once the cache has been written to disk the information
+    stored will be unchanged even if the contents of the
+    original directory changed. To check if the cache is
+    'stale' (that is, no longer reflects the contents of the
+    original directory) use the 'is_stale' method.
+
+    To get lists of the modified, new (aka 'untracked') or
+    deleted files use the 'status' method, e.g.:
+
+    >>> delelted,modified,untracked = c.status()
+
+    To update the cache in memory use the 'update' method;
+    (note that the cache must then be explicitly rewritten to
+    disk with the 'save' method).
 
     """
     
     def __init__(self,dirn):
         """
+        Create a new DirCache instance
+
+        Arguments:
+          dirn (str): source directory to build the
+            cache for
+
         """
-        self._cache_dirname = '.arqvist'
         self._dirn = os.path.abspath(dirn)
+        self._cache_dirname = '.arqvist'
         self._files = {}
-        self._file_attributes = ('basename',
-                                 'size',
-                                 'timestamp',
-                                 'owner',
-                                 'group',
-                                 'ext',
-                                 'compression',
-                                 'md5',
-                                 'uncompressed_md5',
-                                 'relpath',)
-        # Load data from existing cache
+        self._file_attributes = FILE_ATTRIBUTES
         if os.path.isdir(self.cachedir):
             print "Found %s" % self.cachedir
-            self.load()
-        # Build file lists
-        for d in os.walk(dirn):
-            if os.path.basename(d[0]) == self._cache_dirname:
-                # Skip the cache directory
-                continue
-            for f in d[1]:
-                if f == self._cache_dirname:
-                    # Skip the cache directory
-                    continue
-                self._add_file(d[0],f)
-            for f in d[2]:
-                self._add_file(d[0],f)
+        # Populate cache
+        if not self.load():
+            self.build()
 
     def __getitem__(self,key):
-        return self._files[key]
+        return self._files[os.path.normpath(key)]
 
     def __len__(self):
         return len(self._files)
@@ -80,8 +115,44 @@ class DataDirCache:
         return os.path.join(self._dirn,self._cache_dirname)
 
     @property
+    def exists(self):
+        """
+        Does the cache exist on disk
+        """
+        return os.path.exists(self.cachedir)
+
+    @property
     def files(self):
-        return self._files.keys()
+        """
+        Return sorted list of files
+        """
+        return sorted(self._files.keys())
+
+    @property
+    def is_stale(self):
+        """
+        Check if the cache differs from reality
+        """
+        d,m,u = self.status()
+        if d or m or u:
+            return True
+        return False
+
+    def _walk(self):
+        """
+        Internal: walk the source directory structure
+        """
+        for d in os.walk(self._dirn):
+            if os.path.basename(d[0]) == self._cache_dirname:
+                # Skip the cache directory
+                continue
+            for f in d[1]:
+                if f == self._cache_dirname:
+                    # Skip the cache directory
+                    continue
+                yield os.path.normpath(os.path.join(d[0],f))
+            for f in d[2]:
+                yield os.path.normpath(os.path.join(d[0],f))
 
     def _add_file(self,*args):
         """
@@ -89,76 +160,150 @@ class DataDirCache:
         """
         # Construct the normalised and relative file paths
         fn = os.path.normpath(os.path.join(*args))
-        relpath = os.path.relpath(fn,self._dirn)
-        # Look up the file
-        archf = ArchiveFile(fn)
+        f = ArchiveFile(fn)
+        relpath = f.relpath(self._dirn)
+        # Construct cache representation
+        cachefile = CacheFile(relpath,
+                              type=f.type,
+                              size=f.size,
+                              timestamp=f.utctimestamp,
+                              mode=f.mode,
+                              owner=f.uid,
+                              group=f.gid)
+        # Store in the index
         if relpath in self._files:
-            adf = self._files[relpath]
-            print "%s: already in cache" % relpath
-            if archf.size != adf['size'] or archf.timestamp != adf['timestamp']:
-                print "*** CACHE IS STALE ***"
-                for attr in self._file_attributes:
-                    try:
-                        file_value = getattr(archf,attr)
-                        cache_value = adf[attr]
-                        if str(file_value) != str(cache_value):
-                            print "%s:\t%s != %s (cached)" % (attr,
-                                                              file_value,
-                                                              cache_value)
-                            print "Types: %s %s" % (type(file_value),
-                                                    type(cache_value))
-                    except AttributeError:
-                        pass
-        else:
-            # Store the basic attributes
-            adf = utils.AttributeDictionary()
-            adf['basename'] = args[-1]
-            adf['size'] = archf.size
-            adf['timestamp'] = archf.timestamp
-            adf['owner'] = None
-            adf['group'] = None
-            adf['ext'] =  archf.ext
-            adf['compression'] = archf.compression
-            adf['md5'] = None
-            adf['uncompressed_md5'] = None
-            adf['relpath'] = relpath
-            # Store in the index
-            self._files[relpath] = adf
+            if not self._files[relpath].is_stale(f.size,
+                                                 f.utctimestamp):
+                return
+            print "%s: updating cache" % relpath
+        self._files[relpath] = cachefile
+
+    def build(self):
+        """
+        Build the cache in memory
+        """
+        for f in self._walk():
+            self._add_file(f)
+
+    def update(self):
+        """
+        Update the cache in memory
+        """
+        self.build()
 
     def load(self):
         """
+        Load the cache into memory from disk
         """
+        filecache = os.path.join(self.cachedir,'files')
+        if not os.path.exists(filecache):
+            return False
         with open(os.path.join(self.cachedir,'files'),'r') as fp:
             for line in fp:
                 line = line.rstrip('\n')
                 if line.startswith('#'):
                     attributes = line[1:].split('\t')
                     continue
-                adf = utils.AttributeDictionary()
-                for attr in self._file_attributes:
-                    adf[attr] = None
-                values = line.rstrip('\n').split('\t')
-                for attr,value in zip(attributes,values):
-                    if value == 'None':
-                        adf[attr] = None
-                    else:
-                        try:
-                            adf[attr] = int(value)
-                        except ValueError:
-                            try:
-                                adf[attr] = float(value)
-                            except ValueError:
-                                adf[attr] = value
-                self._files[adf.relpath] = adf
+                values = line.split('\t')
+                data = dict(zip(attributes,values))
+                relpath = data['relpath']
+                adf = CacheFile(**data)
+                self._files[relpath] = adf
+        return True
+
+    def status(self):
+        """
+        Check the cache against the source directory
+
+        Checks for cache entries that have been deleted
+        (i.e. there is a cache entry but no corresponding
+        file on disk), modified (i.e. size and/or timestamp
+        are different on disk) or are new (aka 'untracked',
+        i.e. exist on disk but not in the cache).
+
+        Returns a tuple of lists of deleted, modified and
+        untracked files.
+
+        """
+        deleted = []
+        modified = []
+        untracked = []
+        for f in self._walk():
+            relpath = os.path.relpath(f,self._dirn)
+            try:
+                cachefile = self[relpath]
+                af = ArchiveFile(f)
+                if cachefile.is_stale(af.size,af.utctimestamp):
+                    modified.append(relpath)
+            except KeyError:
+                untracked.append(relpath)
+        for f in self.files:
+            if not os.path.exists(os.path.join(self._dirn,f)):
+                deleted.append(f)
+        return (deleted,modified,untracked)
 
     def save(self):
         """
+        Write the cache data to disk
         """
+        # Create cache dir if it doesn't exist
         if not os.path.exists(self.cachedir):
-            utils.mkdir(self.cachedir)
-        with open(os.path.join(self.cachedir,'files'),'w') as fp:
-            fp.write('#%s\n' % '\t'.join(self._file_attributes))
-            for f in self.files:
-                fp.write('%s\n' % '\t'.join([str(self[f][attr])
-                                             for attr in
-                                             self._file_attributes]))
+            bcfutils.mkdir(self.cachedir)
+        # Write to temp file first
+        fp,fname = tempfile.mkstemp(dir=self.cachedir)
+        fp = os.fdopen(fp,'w')
+        fp.write('#%s\n' % '\t'.join(self._file_attributes))
+        for f in self.files:
+            fp.write('%s\n' % '\t'.join([str(self[f][x])
+                                         for x in self._file_attributes]))
+        fp.close()
+        # Make copy of old file
+        if os.path.exists(os.path.join(self.cachedir,'files')):
+            shutil.copy2(os.path.join(self.cachedir,'files'),
+                         os.path.join(self.cachedir,'files.bak'))
+        # Move new version
+        shutil.move(fname,os.path.join(self.cachedir,'files'))
+
+class CacheFile(AttributeDictionary,object):
+    """
+    Class to store cached info on a file
+
+    """
+    def __init__(self,relpath,**kws):
+        """
+        """
+        self._file_attributes = FILE_ATTRIBUTES
+        AttributeDictionary.__init__(self)
+        # Initialise everything to None
+        for x in self._file_attributes:
+            self[x] = None
+        # Set the file/base name
+        self['relpath'] = relpath
+        self['basename'] = os.path.basename(relpath)
+        # Set the compression and file extension
+        self['ext'],self['compression'] = get_file_extensions(relpath)
+        # Store the supplied data
+        for x in kws:
+            if x not in self._file_attributes:
+                raise KeyError("Unrecognised key: '%s'" % x)
+            self[x] = kws[x]
+            # Explicitly set None data items
+            if self[x] == 'None':
+                self[x] = None
+        # Explicitly set file sizes to integer
+        if self.size is not None:
+            self['size'] = int(self.size)
+        # Explicitly handle time stamp
+        if self.timestamp is not None:
+            self['timestamp'] = dateutil.parser.parse(str(self.timestamp))
+
+    @property
+    def attributes(self):
+        """
+        """
+        return self._file_attributes
+
+    def is_stale(self,size,timestamp):
+        """
+        """
+        return (size != self.size or timestamp != self.timestamp)
