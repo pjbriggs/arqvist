@@ -10,11 +10,13 @@ Core classes and functions
 """
 
 import os
+import stat
 import bz2
 import fnmatch
 import itertools
 import logging
 import tempfile
+import datetime
 import bcftbx.utils as utils
 import bcftbx.Md5sum as Md5sum
 from auto_process_ngs import applications
@@ -46,16 +48,38 @@ class ArchiveFile(utils.PathInfo):
     """
     Class for storing information about a file
 
+    Available attributes:
+
+    - size
+    - timestamp
+    - utctimestamp
+    - mode
+    - ext
+    - compression
+
+    Properties:
+
+    - basename
+    - type
+    - classifier
+
+    Methods:
+
+    - get_md5sums
+    - compress
+
     """
     def __init__(self,filen):
         """
         Create and populate a new ArchiveFile instance
         """
-        utils.PathInfo.__init__(self,filen)
+        utils.PathInfo.__init__(self,os.path.abspath(filen))
         # !!!FIXME should be able to st_size from PathInfo!!!
-        self.size = os.lstat(filen).st_size
+        self.size = os.lstat(self.path).st_size
         self.timestamp = self.mtime
-        self.ext,self.compression = get_file_extensions(filen)
+        self.utctimestamp = datetime.datetime.utcfromtimestamp(self.timestamp)
+        self.mode = oct(stat.S_IMODE(os.lstat(self.path).st_mode))
+        self.ext,self.compression = get_file_extensions(self.path)
         self.md5 = None
         self.uncompressed_md5 = None
 
@@ -65,6 +89,19 @@ class ArchiveFile(utils.PathInfo):
         Return the basename of the file path
         """
         return os.path.basename(self.path)
+
+    @property
+    def type(self):
+        """
+        Return a one letter identifier for the file type
+        """
+        if self.is_link:
+            return 's'
+        elif self.is_dir:
+            return 'd'
+        elif self.is_file:
+            return 'f'
+        raise OSError("Unable to identify type for %s" % self.path)
 
     @property
     def classifier(self):
