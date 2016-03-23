@@ -191,7 +191,7 @@ class DirCache:
         """
         self.build()
         for f in self.files:
-            if not os.path.exists(os.path.join(self._dirn,f)):
+            if not os.path.lexists(os.path.join(self._dirn,f)):
                 print "%s: removing" % f
                 del(self._files[f])
 
@@ -243,7 +243,7 @@ class DirCache:
             except KeyError:
                 untracked.append(relpath)
         for f in self.files:
-            if not os.path.exists(os.path.join(self._dirn,f)):
+            if not os.path.lexists(os.path.join(self._dirn,f)):
                 deleted.append(f)
         return (deleted,modified,untracked)
 

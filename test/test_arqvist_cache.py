@@ -203,7 +203,7 @@ class TestDirCache(unittest.TestCase):
 
     def test_dircache_file_with_leading_hash(self):
         """
-        handle files with leading hash in name (e.g. '#test')
+        DirCache handles files with leading hash in name (e.g. '#test')
         """
         # Create file with leading hash
         utils.make_file('#test',dirn=self.dirn,text="Bad file name?")
@@ -213,6 +213,24 @@ class TestDirCache(unittest.TestCase):
         del(dircache)
         # Reload data and modify items
         dircache2 = DirCache(self.dirn)
+
+    def test_dircache_with_broken_symlink(self):
+        """
+        DirCache handles broken symlinks
+        """
+        # Create broken symlink
+        utils.make_symlink('bad_link','this/is/missing',dirn=self.dirn)
+        # Create dir cache
+        dircache = DirCache(self.dirn)
+        dircache.save()
+        del(dircache)
+        # Reload data and modify items
+        dircache2 = DirCache(self.dirn)
+        deleted,modified,untracked = dircache2.status()
+        self.assertEqual(deleted,[])
+        self.assertEqual(modified,[])
+        self.assertEqual(untracked,[])
+        self.assertFalse(dircache2.is_stale)
 
 # CacheFile
 
