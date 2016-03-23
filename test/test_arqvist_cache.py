@@ -200,6 +200,19 @@ class TestDirCache(unittest.TestCase):
         self.assertEqual(modified,[])
         self.assertEqual(untracked,[])
 
+    def test_dircache_file_with_leading_hash(self):
+        """
+        handle files with leading hash in name (e.g. '#test')
+        """
+        # Create file with leading hash
+        utils.make_file('#test',dirn=self.dirn,text="Bad file name?")
+        # Create dir cache
+        dircache = DirCache(self.dirn)
+        dircache.save()
+        del(dircache)
+        # Reload data and modify items
+        dircache2 = DirCache(self.dirn)
+
 # CacheFile
 
 class TestCacheFile(unittest.TestCase):

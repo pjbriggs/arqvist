@@ -199,9 +199,10 @@ class DirCache:
         if not os.path.exists(filecache):
             return False
         with open(os.path.join(self.cachedir,'files'),'r') as fp:
+            attributes = None
             for line in fp:
                 line = line.rstrip('\n')
-                if line.startswith('#'):
+                if not attributes:
                     attributes = line[1:].split('\t')
                     continue
                 values = line.split('\t')
