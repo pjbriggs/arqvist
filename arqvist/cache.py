@@ -33,7 +33,7 @@ FILE_ATTRIBUTES = ('basename',
                    'uncompressed_md5',
                    'relpath',)
 
-class DirCache:
+class DirCache(object):
     """
     Cache info on contents of directory
 
