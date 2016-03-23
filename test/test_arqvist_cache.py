@@ -181,9 +181,10 @@ class TestDirCache(unittest.TestCase):
         analysis = utils.make_subdir(self.dirn,'analysis')
         utils.make_file('analysis.log',dirn=analysis,
                         text="Output from analysis prog v1.0")
+        os.remove(os.path.join(self.dirn,'fastqs','PJB_S1_R1.fastq'))
         self.assertTrue(dircache2.is_stale)
         deleted,modified,untracked = dircache2.status()
-        self.assertEqual(deleted,[])
+        self.assertEqual(deleted,['fastqs/PJB_S1_R1.fastq'])
         self.assertEqual(modified,['README.txt'])
         self.assertEqual(untracked,['analysis',
                                     'analysis/analysis.log'])

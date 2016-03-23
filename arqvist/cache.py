@@ -190,6 +190,10 @@ class DirCache:
         Update the cache in memory
         """
         self.build()
+        for f in self.files:
+            if not os.path.exists(os.path.join(self._dirn,f)):
+                print "%s: removing" % f
+                del(self._files[f])
 
     def load(self):
         """
@@ -307,4 +311,7 @@ class CacheFile(AttributeDictionary,object):
     def is_stale(self,size,timestamp):
         """
         """
-        return (size != self.size or timestamp != self.timestamp)
+        if self.type == 'f':
+            return (size != self.size or timestamp != self.timestamp)
+        else:
+            return False
