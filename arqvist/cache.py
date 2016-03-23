@@ -273,9 +273,41 @@ class CacheFile(AttributeDictionary,object):
     """
     Class to store cached info on a file
 
+    Usage:
+
+    >>> f = CacheFile('path/to/file')
+
+    creates an 'empty' CacheFile instance, or:
+
+    >>> f = CacheFile('path/to/file',
+    ...               size=512,
+    ...               timestamp='2016-03-22 13:15:47.955909',
+    ...               type='f')
+
+    creates a populated CacheFile instance.
+
+    Attributes can be accessed as dictionary keys or
+    attributes, e.g.
+
+    >>> f.size
+
+    or
+
+    >>> f['size']
+
+    Keys can also be used to set new values:
+
+    >>> f['size'] = 1024
+
     """
-    def __init__(self,relpath,**kws):
+    def __init__(self,path,**kws):
         """
+        Create a new CacheFile instance
+
+        Arguments:
+          path (str): path to the 'parent' file (typically
+            relative to a reference directory)
+
         """
         self._file_attributes = FILE_ATTRIBUTES
         AttributeDictionary.__init__(self)
@@ -283,10 +315,10 @@ class CacheFile(AttributeDictionary,object):
         for x in self._file_attributes:
             self[x] = None
         # Set the file/base name
-        self['relpath'] = relpath
-        self['basename'] = os.path.basename(relpath)
+        self['relpath'] = path
+        self['basename'] = os.path.basename(path)
         # Set the compression and file extension
-        self['ext'],self['compression'] = get_file_extensions(relpath)
+        self['ext'],self['compression'] = get_file_extensions(path)
         # Store the supplied data
         for x in kws:
             if x not in self._file_attributes:
@@ -305,11 +337,13 @@ class CacheFile(AttributeDictionary,object):
     @property
     def attributes(self):
         """
+        Return list of attributes associated with the CacheFile
         """
         return self._file_attributes
 
     def is_stale(self,size,timestamp):
         """
+        Check if cached attributes differ from supplied values
         """
         if self.type == 'f':
             return (size != self.size or timestamp != self.timestamp)
