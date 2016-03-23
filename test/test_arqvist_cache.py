@@ -35,6 +35,7 @@ class TestDirCache(unittest.TestCase):
         fastqs = utils.make_subdir(self.dirn,'fastqs')
         utils.make_file('PJB_S1_R1.fastq',dirn=fastqs,text=fq_r1)
         utils.make_file('PJB_S1_R2.fastq',dirn=fastqs,text=fq_r2)
+
     def tearDown(self):
         # Remove test directory and contents
         utils.rmdir(self.dirn)
@@ -57,6 +58,35 @@ class TestDirCache(unittest.TestCase):
         self.assertEqual(dircache['README.txt'].type,'f')
         self.assertEqual(dircache['fastqs'].type,'d')
         self.assertEqual(dircache['README.txt'].ext,'txt')
+        self.assertEqual(dircache['README.txt'].md5,None)
+        self.assertEqual(dircache['README.txt'].uncompressed_md5,None)
+
+    def test_create_dircache_with_checksums(self):
+        """
+        create a new DirCache instance with MD5 checksums
+        """
+        dircache = DirCache(self.dirn,include_checksums=True)
+        self.assertEqual(len(dircache),4)
+        self.assertEqual(dircache.files,
+                         ['README.txt',
+                          'fastqs',
+                          'fastqs/PJB_S1_R1.fastq',
+                          'fastqs/PJB_S1_R2.fastq'])
+        self.assertFalse(dircache.exists)
+        self.assertFalse(dircache.is_stale)
+        self.assertTrue(isinstance(dircache['README.txt'],CacheFile))
+        self.assertTrue(isinstance(dircache['fastqs'],CacheFile))
+        self.assertEqual(dircache['README.txt'].type,'f')
+        self.assertEqual(dircache['fastqs'].type,'d')
+        self.assertEqual(dircache['README.txt'].ext,'txt')
+        self.assertEqual(dircache['README.txt'].md5,
+                         '257dd8890919396864a586ae0f64e5f5')
+        self.assertEqual(dircache['README.txt'].uncompressed_md5,
+                         '257dd8890919396864a586ae0f64e5f5')
+        self.assertEqual(dircache['fastqs/PJB_S1_R1.fastq'].md5,
+                         'c709762462dc109c74825d8c42c4dce8')
+        self.assertEqual(dircache['fastqs/PJB_S1_R2.fastq'].md5,
+                         '4483943eef534229a9ab426681cdd47c')
 
     def test_save_dircache(self):
         """
@@ -200,6 +230,22 @@ class TestDirCache(unittest.TestCase):
         self.assertEqual(deleted,[])
         self.assertEqual(modified,[])
         self.assertEqual(untracked,[])
+
+    def test_dircache_update_checksums(self):
+        """
+        update DirCache data to include MD5 checksums
+        """
+        # Create dir cache without checksums
+        dircache = DirCache(self.dirn)
+        self.assertEqual(dircache['README.txt'].md5,None)
+        self.assertEqual(dircache['README.txt'].uncompressed_md5,None)
+        # Update with checksums
+        dircache.update(include_checksums=True)
+        # Check that MD5s have been added
+        self.assertEqual(dircache['README.txt'].md5,
+                         '257dd8890919396864a586ae0f64e5f5')
+        self.assertEqual(dircache['README.txt'].uncompressed_md5,
+                         '257dd8890919396864a586ae0f64e5f5')
 
     def test_dircache_file_with_leading_hash(self):
         """

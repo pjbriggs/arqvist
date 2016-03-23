@@ -82,13 +82,16 @@ class DirCache(object):
 
     """
     
-    def __init__(self,dirn):
+    def __init__(self,dirn,include_checksums=False):
         """
         Create a new DirCache instance
 
         Arguments:
           dirn (str): source directory to build the
             cache for
+          include_checksums (bool): if True then
+            also generate MD5 checksums (default is
+            False)
 
         """
         self._dirn = os.path.abspath(dirn)
@@ -99,7 +102,7 @@ class DirCache(object):
             print "Found %s" % self.cachedir
         # Populate cache
         if not self.load():
-            self.build()
+            self.build(include_checksums=include_checksums)
 
     def __getitem__(self,key):
         return self._files[os.path.normpath(key)]
@@ -117,7 +120,7 @@ class DirCache(object):
     @property
     def exists(self):
         """
-        Does the cache exist on disk
+        Check if the directory holding the cache exists
         """
         return os.path.exists(self.cachedir)
 
@@ -154,10 +157,23 @@ class DirCache(object):
             for f in d[2]:
                 yield os.path.normpath(os.path.join(d[0],f))
 
-    def _add_file(self,*args):
+    def _add_file(self,*args,**kws):
         """
         Add a file/directory and update stored info
+
+        Arguments:
+          args (list): path components to assemble
+            into path for the file being added
+          include_checksums (bool): if True then
+            also generate MD5 checksums (default is
+            False)
+
         """
+        # Extract keywords
+        if 'include_checksums' in kws:
+            include_checksums = kws['include_checksums']
+        else:
+            include_checksums = False
         # Construct the normalised and relative file paths
         fn = os.path.normpath(os.path.join(*args))
         f = ArchiveFile(fn)
@@ -170,26 +186,34 @@ class DirCache(object):
                               mode=f.mode,
                               owner=f.uid,
                               group=f.gid)
+        # Generate checksums
+        if include_checksums:
+            chksum,uncompressed_chksum = f.get_md5sums()
+            cachefile['md5'] = chksum
+            cachefile['uncompressed_md5'] = uncompressed_chksum
         # Store in the index
         if relpath in self._files:
-            if not self._files[relpath].is_stale(f.size,
-                                                 f.utctimestamp):
-                return
             print "%s: updating cache" % relpath
         self._files[relpath] = cachefile
 
-    def build(self):
+    def build(self,include_checksums=False):
         """
         Build the cache in memory
         """
         for f in self._walk():
-            self._add_file(f)
+            self._add_file(f,include_checksums=include_checksums)
 
-    def update(self):
+    def update(self,include_checksums=False):
         """
         Update the cache in memory
+
+        Arguments:
+          include_checksums (bool): if True then
+            also generate MD5 checksums (default is
+            False)
+
         """
-        self.build()
+        self.build(include_checksums=include_checksums)
         for f in self.files:
             if not os.path.lexists(os.path.join(self._dirn,f)):
                 print "%s: removing" % f
@@ -212,7 +236,7 @@ class DirCache(object):
                 values = line.split('\t')
                 data = dict(zip(attributes,values))
                 relpath = data['relpath']
-                adf = CacheFile(**data)
+                adf = CacheFile(relpath,**data)
                 self._files[relpath] = adf
         return True
 
@@ -344,8 +368,18 @@ class CacheFile(AttributeDictionary,object):
     def is_stale(self,size,timestamp):
         """
         Check if cached attributes differ from supplied values
+
+        Note that the test is only implemented for files; all
+        other types return False without any tests.
+
         """
         if self.type == 'f':
             return (size != self.size or timestamp != self.timestamp)
         else:
             return False
+
+    def differs(self):
+        """
+        Report if cached attributes differ from supplied values
+        """
+        raise NotImplementedError
