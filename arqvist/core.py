@@ -11,6 +11,7 @@ Core classes and functions
 
 import os
 import stat
+import gzip
 import bz2
 import fnmatch
 import itertools
