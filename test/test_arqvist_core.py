@@ -42,7 +42,7 @@ class TestArchiveFile(unittest.TestCase):
                                           '97214f63224bc1e9cc4da377aadce7c7'))
         self.assertEqual(f.md5,'97214f63224bc1e9cc4da377aadce7c7')
         self.assertEqual(f.uncompressed_md5,'97214f63224bc1e9cc4da377aadce7c7')
-    def test_get_md5sums_compressed_file(self):
+    def test_get_md5sums_bz2_compressed_file(self):
         filen = utils.make_file('test.txt.bz2',dirn=self.dir_,text="This is some text",
                                 compress='bz2')
         f = ArchiveFile(filen)
@@ -51,6 +51,16 @@ class TestArchiveFile(unittest.TestCase):
         self.assertEqual(f.get_md5sums(),('c032b31c8a39aaa53b0c6df004e95a64',
                                           '97214f63224bc1e9cc4da377aadce7c7'))
         self.assertEqual(f.md5,'c032b31c8a39aaa53b0c6df004e95a64')
+        self.assertEqual(f.uncompressed_md5,'97214f63224bc1e9cc4da377aadce7c7')
+    def test_get_md5sums_gz_compressed_file(self):
+        filen = utils.make_file('test.txt.gz',dirn=self.dir_,text="This is some text",
+                                compress='gz',gzip_mtime=1459348278.805595)
+        f = ArchiveFile(filen)
+        self.assertEqual(f.md5,None)
+        self.assertEqual(f.uncompressed_md5,None)
+        self.assertEqual(f.get_md5sums(),('80ea6776bba9acf141b6c05d7e81181b',
+                                          '97214f63224bc1e9cc4da377aadce7c7'))
+        self.assertEqual(f.md5,'80ea6776bba9acf141b6c05d7e81181b')
         self.assertEqual(f.uncompressed_md5,'97214f63224bc1e9cc4da377aadce7c7')
     def test_compress(self):
         filen = utils.make_file('test.txt',dirn=self.dir_,text="This is some text")
