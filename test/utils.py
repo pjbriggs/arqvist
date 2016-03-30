@@ -4,6 +4,7 @@
 # making test directories, files and links
 import os
 import bz2
+import gzip
 import tempfile
 import shutil
 
@@ -29,8 +30,10 @@ def make_subdir(dirn,subdir):
     os.mkdir(subdir)
     return subdir
 
-def make_file(filen,dirn=None,text=None,compress=None):
+def make_file(filen,dirn=None,text=None,compress=None,gzip_mtime=None):
     # Create a new file
+    # NB Explicitly set 'gzip_mtime' to ensure that the timestamp
+    # written to gzip files are the same each time (ignored otherwise)
     if dirn is not None:
         filen = os.path.join(dirn,filen)
     if compress is None:
@@ -38,6 +41,8 @@ def make_file(filen,dirn=None,text=None,compress=None):
     else:
         if compress == 'bz2':
             fp = bz2.BZ2File(filen,'w')
+        elif compress == 'gz':
+            fp = gzip.GzipFile(filen,'w',mtime=gzip_mtime)
         else:
             raise Exception("%s: compression not implemented" % compress)
     if text is not None:
