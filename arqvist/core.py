@@ -53,7 +53,6 @@ class ArchiveFile(utils.PathInfo):
 
     - size
     - timestamp
-    - utctimestamp
     - mode
     - ext
     - compression
@@ -77,12 +76,11 @@ class ArchiveFile(utils.PathInfo):
         utils.PathInfo.__init__(self,os.path.abspath(filen))
         # !!!FIXME should be able to st_size from PathInfo!!!
         self.size = os.lstat(self.path).st_size
-        self.timestamp = self.mtime
-        self.utctimestamp = datetime.datetime.utcfromtimestamp(self.timestamp)
+        self.timestamp = datetime.datetime.utcfromtimestamp(self.mtime)
         self.mode = oct(stat.S_IMODE(os.lstat(self.path).st_mode))
         self.ext,self.compression = get_file_extensions(self.path)
-        self.md5 = None
-        self.uncompressed_md5 = None
+        self._md5 = None
+        self._uncompressed_md5 = None
 
     @property
     def basename(self):
@@ -103,6 +101,43 @@ class ArchiveFile(utils.PathInfo):
         elif self.is_file:
             return 'f'
         raise OSError("Unable to identify type for %s" % self.path)
+
+    @property
+    def md5(self):
+        """
+        Return MD5 checksum for the ArchiveFile
+        """
+        if self.is_link or self.is_dir:
+            # Ignore links or directories
+            return None
+        if self._md5 is None:
+            # Generate MD5 sum
+            self._md5 = Md5sum.md5sum(self.path)
+        return self._md5
+
+    @property
+    def uncompressed_md5(self):
+        """
+        Return MD5 checksum for the uncompressed ArchiveFile
+        """
+        if self.is_link or self.is_dir:
+            # Ignore links or directories
+            return None
+        if self._uncompressed_md5 is None:
+            # Generate MD5 for uncompressed contents
+            if not self.compression:
+                self._uncompressed_md5 = self.md5
+            elif self.compression == 'bz2':
+                fp = bz2.BZ2File(self.path,'r')
+                self._uncompressed_md5 = Md5sum.md5sum(fp)
+            elif self.compression == 'gz':
+                fp = gzip.GzipFile(self.path,'rb')
+                self._uncompressed_md5 = Md5sum.md5sum(fp)
+            else:
+                logging.warning("%s: md5sums not implemented for "
+                                "compression type '%s'"
+                                % (self,self.compression))
+        return self._uncompressed_md5
 
     @property
     def classifier(self):
@@ -139,26 +174,6 @@ class ArchiveFile(utils.PathInfo):
         Returns tuple (md5,md5_uncompressed_contents).
 
         """
-        if self.is_link or self.is_dir:
-            # Ignore links or directories
-            return (None,None)
-        if self.md5 is None:
-            # Generate MD5 sum
-            self.md5 = Md5sum.md5sum(self.path)
-        if self.uncompressed_md5 is None:
-            # Generate MD5 for uncompressed contents
-            if not self.compression:
-                self.uncompressed_md5 = self.md5
-            elif self.compression == 'bz2':
-                fp = bz2.BZ2File(self.path,'r')
-                self.uncompressed_md5 = Md5sum.md5sum(fp)
-            elif self.compression == 'gz':
-                fp = gzip.GzipFile(self.path,'rb')
-                self.uncompressed_md5 = Md5sum.md5sum(fp)
-            else:
-                logging.warning("%s: md5sums not implemented for "
-                                "compression type '%s'"
-                                % (self,self.compression))
         return (self.md5,self.uncompressed_md5)
 
     def compress(self,dry_run=False):
@@ -188,7 +203,6 @@ class ArchiveFile(utils.PathInfo):
             logging.warning("%s: compressed copy already exists" % self)
             return -1
         # Get MD5 checksum
-        self.get_md5sums()
         checksum = self.md5
         # Capture timestamp for parent directory
         parent_mtime = os.lstat(os.path.dirname(self.path)).st_mtime
@@ -225,7 +239,7 @@ class ArchiveFile(utils.PathInfo):
                 self._PathInfo__path = bz2file
                 self._PathInfo__st = os.lstat(self.path)
                 self.compression = 'bz2'
-                self.md5 = None
+                self._md5 = None
             else:
                 logging.error("Bad checksum for compressed version of %s" % self)
                 status = 1
@@ -421,8 +435,8 @@ class DataDir:
             self._groups.append(f.group)
         # Oldest and newest modification times
         try:
-            self.oldest = f if f.timestamp < self.oldest.timestamp else self.oldest
-            self.newest = f if f.timestamp > self.newest.timestamp else self.newest
+            self.oldest = f if f.mtime < self.oldest.mtime else self.oldest
+            self.newest = f if f.mtime > self.newest.mtime else self.newest
         except AttributeError:
             self.oldest = f
             self.newest = f
@@ -494,7 +508,7 @@ class DataDir:
                     f = data[path]
                     ##print "Sizes:\t%s\t%s" % (filen.size,f['size'])
                     ##print "Times:\t%s\t%s" % (filen.timestamp,f['time'])
-                    if f['size'] == filen.size and f['time'] == filen.timestamp:
+                    if f['size'] == filen.size and f['time'] == filen.mtime:
                         # Size and timestamp match
                         filen.md5 = f['md5'] if f['md5'] else None
                         filen.uncompressed_md5 = f['uncompressed_md5'] \
@@ -523,7 +537,7 @@ class DataDir:
                 fp.write("%s\t%s\t%s\t%s\t%s\n" % \
                          (f.relpath(dirn),
                           f.size,
-                          f.timestamp,
+                          f.mtime,
                           (f.md5 if f.md5 else ''),
                           (f.uncompressed_md5 if f.uncompressed_md5 else '')))
 
