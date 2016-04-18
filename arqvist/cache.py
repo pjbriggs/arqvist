@@ -284,15 +284,20 @@ class DirCache(object):
                 return True
         return False
 
-    def status(self,dirn=None):
+    def status(self,dirn=None,attributes=('type','size',)):
         """
         Check the cache against a source directory
 
-        Checks for cache entries that have been deleted
-        (i.e. there is a cache entry but no corresponding
-        file on disk), modified (i.e. size and/or timestamp
-        are different on disk) or are new (aka 'untracked',
-        i.e. exist on disk but not in the cache).
+        Checks for cache entries that have been deleted (i.e.
+        there is a cache entry but no corresponding file on
+        disk), modified (i.e. specified attributes are
+        different on disk) or are new (aka 'untracked', i.e.
+        exist on disk but not in the cache).
+
+        By default only the 'type' and 'size' attributes are
+        checked to determine if an entry has been modified;
+        the list of attributes can be changed by explicitly
+        specifying the ``attributes`` argument.
 
         By default the cache is checked against the directory
         associated with the DirCache instance; otherwise if
@@ -314,7 +319,7 @@ class DirCache(object):
                 continue
             try:
                 cachefile = self[relpath]
-                if cachefile.compare(f):
+                if cachefile.compare(f,attributes):
                     modified.append(relpath)
             except KeyError:
                 untracked.append(relpath)
