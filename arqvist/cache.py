@@ -236,7 +236,6 @@ class DirCache(object):
                     line = line.rstrip()
                     if line.startswith('#'):
                         continue
-                    print "Adding ignore line: %s" % line
                     self._ignore.append(line)
         # Cached files
         filecache = os.path.join(self.cachedir,'files')
