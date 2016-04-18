@@ -141,11 +141,23 @@ class DirCache(object):
             return True
         return False
 
-    def _walk(self):
+    def _walk(self,dirn=None):
         """
         Internal: walk the source directory structure
+
+        By default this traverses the directory structure
+        associated with the DirCache object and yields
+        the full path to each subdirectory and file that
+        is found.
+
+        Optionally it can be used to traverse an
+        alternative directory structure by explicitly
+        specifying the ``dirn`` argument.
+
         """
-        for d in os.walk(self._dirn):
+        if dirn is None:
+            dirn = self._dirn
+        for d in os.walk(dirn):
             if os.path.basename(d[0]) == self._cache_dirname:
                 # Skip the cache directory
                 continue
@@ -251,19 +263,30 @@ class DirCache(object):
                 self._files[relpath] = adf
         return True
 
-    def ignore(self,f):
+    def ignore(self,f,dirn=None):
         """
-        Check if filename matches one of the 'ignore' patterns
+        Check if file matches one of the 'ignore' patterns
+
+        The file path is taken to be relative to the parent
+        directory of the DirCache instance before being tested
+        against the 'ignore' patterns.; if the ``dirn``
+        argument is explicitly specified then the file path
+        will be taken to be relative to that instead.
+
+        Returns True if the file matches at least one 'ignore'
+        pattern, otherwise returns False.
 
         """
+        if dirn is None:
+            dirn = self._dirn
         for pattern in self._ignore:
-            if fnmatch.fnmatch(os.path.relpath(f,self._dirn),pattern):
+            if fnmatch.fnmatch(os.path.relpath(f,dirn),pattern):
                 return True
         return False
 
-    def status(self):
+    def status(self,dirn=None):
         """
-        Check the cache against the source directory
+        Check the cache against a source directory
 
         Checks for cache entries that have been deleted
         (i.e. there is a cache entry but no corresponding
@@ -271,26 +294,32 @@ class DirCache(object):
         are different on disk) or are new (aka 'untracked',
         i.e. exist on disk but not in the cache).
 
+        By default the cache is checked against the directory
+        associated with the DirCache instance; otherwise if
+        the ``dirn`` argument is explicitly specified then
+        this directory is checked instead.
+
         Returns a tuple of lists of deleted, modified and
         untracked files.
 
         """
+        if dirn is None:
+            dirn = self._dirn
         deleted = []
         modified = []
         untracked = []
-        for f in self._walk():
-            if self.ignore(f):
+        for f in self._walk(dirn):
+            relpath = os.path.relpath(f,dirn)
+            if self.ignore(relpath):
                 continue
-            relpath = os.path.relpath(f,self._dirn)
             try:
                 cachefile = self[relpath]
-                af = ArchiveFile(f)
-                if cachefile.is_stale(af.size,af.timestamp):
+                if cachefile.compare(f):
                     modified.append(relpath)
             except KeyError:
                 untracked.append(relpath)
         for f in self.files:
-            if not os.path.lexists(os.path.join(self._dirn,f)):
+            if not os.path.lexists(os.path.join(dirn,f)):
                 deleted.append(f)
         return (deleted,modified,untracked)
 
@@ -403,8 +432,20 @@ class CacheFile(AttributeDictionary,object):
         else:
             return False
 
-    def differs(self):
+    def compare(self,path,attributes=('size','timestamp')):
         """
-        Report if cached attributes differ from supplied values
+        Compares cached file properties with one on disk
+
+        Returns a list of the attributes that have been
+        modified, or an empty list if they are the same.
+
         """
-        raise NotImplementedError
+        modified_attrs = []
+        f = ArchiveFile(path)
+        for attr in attributes:
+            try:
+                if self[attr] != getattr(f,attr):
+                    modified_attrs.append(attr)
+            except AttributeError:
+                pass
+        return modified_attrs
