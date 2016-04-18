@@ -405,9 +405,10 @@ class CacheFile(AttributeDictionary,object):
             # Explicitly set None data items
             if self[x] == 'None':
                 self[x] = None
-        # Explicitly set file sizes to integer
-        if self.size is not None:
-            self['size'] = int(self.size)
+        # Explicitly set file sizes, uids and gids to integer
+        for attr in ('size','uid','gid',):
+            if getattr(self,attr) is not None:
+                self[attr] = int(getattr(self,attr))
         # Explicitly handle time stamp
         if self.timestamp is not None:
             self['timestamp'] = dateutil.parser.parse(str(self.timestamp))
