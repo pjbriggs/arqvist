@@ -14,6 +14,7 @@ import datetime
 import dateutil.parser
 import tempfile
 import shutil
+import fnmatch
 from .core import ArchiveFile
 from .core import get_file_extensions
 from bcftbx.utils import AttributeDictionary
@@ -98,6 +99,7 @@ class DirCache(object):
         self._cache_dirname = '.arqvist'
         self._files = {}
         self._file_attributes = FILE_ATTRIBUTES
+        self._ignore = []
         if os.path.isdir(self.cachedir):
             print "Found %s" % self.cachedir
         # Populate cache
@@ -120,9 +122,10 @@ class DirCache(object):
     @property
     def exists(self):
         """
-        Check if the directory holding the cache exists
+        Check if the cache exists on disk
         """
-        return os.path.exists(self.cachedir)
+        return os.path.exists(os.path.join(self.cachedir,
+                                           'files'))
 
     @property
     def files(self):
@@ -201,6 +204,8 @@ class DirCache(object):
         Build the cache in memory
         """
         for f in self._walk():
+            if self.ignore(f):
+                continue
             self._add_file(f,include_checksums=include_checksums)
 
     def update(self,include_checksums=False):
@@ -223,10 +228,21 @@ class DirCache(object):
         """
         Load the cache into memory from disk
         """
+        # Files/patterns to ignore
+        ignorefile = os.path.join(self.cachedir,'ignore')
+        if os.path.exists(ignorefile):
+            with open(ignorefile,'r') as fp:
+                for line in fp:
+                    line = line.rstrip()
+                    if line.startswith('#'):
+                        continue
+                    print "Adding ignore line: %s" % line
+                    self._ignore.append(line)
+        # Cached files
         filecache = os.path.join(self.cachedir,'files')
         if not os.path.exists(filecache):
             return False
-        with open(os.path.join(self.cachedir,'files'),'r') as fp:
+        with open(filecache,'r') as fp:
             attributes = None
             for line in fp:
                 line = line.rstrip('\n')
@@ -239,6 +255,16 @@ class DirCache(object):
                 adf = CacheFile(relpath,**data)
                 self._files[relpath] = adf
         return True
+
+    def ignore(self,f):
+        """
+        Check if filename matches one of the 'ignore' patterns
+
+        """
+        for pattern in self._ignore:
+            if fnmatch.fnmatch(os.path.relpath(f,self._dirn),pattern):
+                return True
+        return False
 
     def status(self):
         """
@@ -258,6 +284,8 @@ class DirCache(object):
         modified = []
         untracked = []
         for f in self._walk():
+            if self.ignore(f):
+                continue
             relpath = os.path.relpath(f,self._dirn)
             try:
                 cachefile = self[relpath]

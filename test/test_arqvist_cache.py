@@ -88,6 +88,20 @@ class TestDirCache(unittest.TestCase):
         self.assertEqual(dircache['fastqs/PJB_S1_R2.fastq'].md5,
                          '4483943eef534229a9ab426681cdd47c')
 
+    def test_dircache_exists(self):
+        """
+        check Dircache.exists property works as expected
+        """
+        # No cache
+        self.assertFalse(DirCache(self.dirn).exists)
+        # Cache dir but no files
+        os.mkdir(os.path.join(self.dirn,'.arqvist'))
+        self.assertFalse(DirCache(self.dirn).exists)
+        # Cache dir with files
+        with open(os.path.join(self.dirn,'.arqvist','files'),'w') as fp:
+            fp.write('')
+        self.assertTrue(DirCache(self.dirn).exists)
+
     def test_save_dircache(self):
         """
         create and save DirCache instance
