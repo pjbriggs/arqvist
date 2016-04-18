@@ -67,7 +67,7 @@ class DirCache(object):
 
     Once the cache has been written to disk the information
     stored will be unchanged even if the contents of the
-    original directory changed. To check if the cache is
+    original directory have changed. To check if the cache is
     'stale' (that is, no longer reflects the contents of the
     original directory) use the 'is_stale' method.
 
@@ -99,8 +99,6 @@ class DirCache(object):
         self._files = {}
         self._file_attributes = FILE_ATTRIBUTES
         self._ignore = []
-        if os.path.isdir(self.cachedir):
-            print "Found %s" % self.cachedir
         # Populate cache
         if not self.load():
             self.build(include_checksums=include_checksums)
