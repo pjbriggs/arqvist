@@ -292,6 +292,8 @@ class DirCache(object):
                          os.path.join(self.cachedir,'files.bak'))
         # Move new version
         shutil.move(fname,os.path.join(self.cachedir,'files'))
+        # Set permissions
+        os.chmod(os.path.join(self.cachedir,'files'),0664)
 
 class CacheFile(AttributeDictionary,object):
     """
