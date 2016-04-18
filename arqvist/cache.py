@@ -20,14 +20,13 @@ from .core import get_file_extensions
 from bcftbx.utils import AttributeDictionary
 import bcftbx.utils as bcfutils
 
-
 FILE_ATTRIBUTES = ('basename',
                    'type',
                    'size',
                    'timestamp',
                    'mode',
-                   'owner',
-                   'group',
+                   'uid',
+                   'gid',
                    'ext',
                    'compression',
                    'md5',
@@ -185,15 +184,14 @@ class DirCache(object):
         cachefile = CacheFile(relpath,
                               type=f.type,
                               size=f.size,
-                              timestamp=f.utctimestamp,
+                              timestamp=f.timestamp,
                               mode=f.mode,
-                              owner=f.uid,
-                              group=f.gid)
+                              uid=f.uid,
+                              gid=f.gid)
         # Generate checksums
         if include_checksums:
-            chksum,uncompressed_chksum = f.get_md5sums()
-            cachefile['md5'] = chksum
-            cachefile['uncompressed_md5'] = uncompressed_chksum
+            cachefile['md5'] = f.md5
+            cachefile['uncompressed_md5'] = f.uncompressed_md5
         # Store in the index
         if relpath in self._files:
             print "%s: updating cache" % relpath
@@ -289,7 +287,7 @@ class DirCache(object):
             try:
                 cachefile = self[relpath]
                 af = ArchiveFile(f)
-                if cachefile.is_stale(af.size,af.utctimestamp):
+                if cachefile.is_stale(af.size,af.timestamp):
                     modified.append(relpath)
             except KeyError:
                 untracked.append(relpath)

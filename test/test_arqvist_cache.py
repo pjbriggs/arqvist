@@ -327,8 +327,9 @@ class TestCacheFile(unittest.TestCase):
                               size='537',
                               timestamp='2016-03-22 13:15:47.955909',
                               mode='0664',
-                              owner='1000',
-                              group='1001')
+                              uid='1000',
+                              gid='1001',
+                              target=None)
         self.assertEqual(cachefile.attributes,FILE_ATTRIBUTES)
         self.assertEqual(cachefile['relpath'],'test/file.txt.gz')
         self.assertEqual(getattr(cachefile,'relpath'),'test/file.txt.gz')
@@ -348,10 +349,10 @@ class TestCacheFile(unittest.TestCase):
                          dateutil.parser.parse('2016-03-22 13:15:47.955909'))
         self.assertEqual(cachefile['mode'],'0664')
         self.assertEqual(getattr(cachefile,'mode'),'0664')
-        self.assertEqual(cachefile['owner'],'1000')
-        self.assertEqual(getattr(cachefile,'owner'),'1000')
-        self.assertEqual(cachefile['group'],'1001')
-        self.assertEqual(getattr(cachefile,'group'),'1001')
+        self.assertEqual(cachefile['uid'],'1000')
+        self.assertEqual(getattr(cachefile,'uid'),'1000')
+        self.assertEqual(cachefile['gid'],'1001')
+        self.assertEqual(getattr(cachefile,'gid'),'1001')
 
     def test_cachefile_is_stale(self):
         """
