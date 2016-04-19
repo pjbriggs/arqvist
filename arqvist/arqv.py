@@ -8,6 +8,7 @@ import sys
 from bcftbx.cmdparse import CommandParser
 from .core import ArchiveFile
 from .cache import DirCache
+from .cache import locate_cache_dir
 
 #######################################################################
 # Main program
@@ -15,37 +16,44 @@ from .cache import DirCache
 
 def main(args=None):
     p = CommandParser()
-    p.add_command('init')
-    p.add_command('status')
-    p.add_command('diff')
+    p.add_command('init',usage="%prog init [directory]")
+    p.add_command('status',usage="%prog status")
+    p.add_command('diff',usage="%prog diff")
+    p.add_command('update',usage="%prog update")
     for cmd in ('status','diff'):
         p.parser_for(cmd).add_option('-t','--target',action='store',
                                      dest='target_dir',default=None,
                                      help="check against TARGET_DIR")
-    p.add_command('update')
+        p.parser_for(cmd).add_option('-c','--checksums',action='store_true',
+                                     dest='checksums',default=False,
+                                     help="also check MD5 sums")
     for cmd in ('init','update'):
         p.parser_for(cmd).add_option('-c','--checksums',action='store_true',
                                      dest='checksums',default=False,
-                                     help="also generate MDS checksums")
+                                     help="also generate MD5 checksums")
     cmd,options,args = p.parse_args()
-    if len(args) == 0:
-        dirn = os.getcwd()
-    elif len(args) == 1:
-        dirn = os.path.abspath(args[0])
+    if cmd == 'init':
+        if len(args) == 0:
+            dirn = os.getcwd()
+        elif len(args) == 1:
+            dirn = os.path.abspath(args[0])
+        else:
+            p.error("Usage: init [directory]")
+        existing_dirn = locate_cache(dirn)
+        if existing_dirn is not None:
+            sys.stderr.write("\n%s: already initialised\n" % existing_dirn)
+            sys.exit(1)
     else:
-        sys.stderr.write("Usage: %s [DIR]\n" % cmd)
-        sys.exit(1)
+        dirn = locate_cache_dir(os.getcwd())
+        if dirn is None:
+            sys.stderr.write("fatal: Not an arqvist cache (or "
+                             "any parent up to %s)\n" % os.sep)
+            sys.exit(1)
     if cmd == 'init':
         d = DirCache(dirn,include_checksums=options.checksums)
-        if d.exists:
-            sys.stderr.write("\n%s: already initialised\n" % dirn)
-            sys.exit(1)
         d.save()
     elif cmd == 'status' or cmd == 'diff':
         d = DirCache(dirn)
-        if not d.exists:
-            sys.stderr.write("\n%s: no cache on disk\n" % dirn)
-            sys.exit(1)
         print dirn
         if options.target_dir is None:
             target_dir = dirn
@@ -58,12 +66,32 @@ def main(args=None):
                       'uid',
                       'gid',
                       'mode',]
+        if options.checksums:
+            attributes.append('md5')
         deleted,modified,untracked = d.status(target_dir,
                                               attributes)
         if cmd == 'status':
-            if not (deleted and modified and untracked):
+            if not (deleted or modified or untracked):
                 print
                 print "no differences compared to cache"
+            else:
+                if target_dir == d.dirn:
+                    deleted = d.normalise_relpaths(deleted,
+                                                   workdir=os.getcwd())
+                    modified = d.normalise_relpaths(modified,
+                                                    workdir=os.getcwd())
+                    untracked = d.normalise_relpaths(untracked,
+                                                     workdir=os.getcwd())
+                else:
+                    deleted = d.normalise_relpaths(deleted,
+                                                   dirn=target_dir,
+                                                   abspaths=True)
+                    modified = d.normalise_relpaths(modified,
+                                                    dirn=target_dir,
+                                                    abspaths=True)
+                    untracked = d.normalise_relpaths(untracked,
+                                                    dirn=target_dir,
+                                                    abspaths=True)
             if deleted or modified:
                 print
                 print "Changes to tracked files:"
@@ -77,14 +105,20 @@ def main(args=None):
                 for f in untracked:
                     print "\t%s" % f
         elif cmd == 'diff':
-            for f in modified:
-                f0 = os.path.join(target_dir,f)
-                af = ArchiveFile(f0)
-                print "%s:" % f
-                for attr in d[f].compare(f0,attributes):
-                    print "\t%s: %s != %s" % (attr,
-                                              getattr(af,attr),
-                                              d[f][attr])
+            if target_dir == d.dirn:
+                normalised_paths = d.normalise_relpaths(modified,
+                                                        workdir=os.getcwd())
+            else:
+                normalised_paths = d.normalise_relpaths(modified,
+                                                        dirn=target_dir,
+                                                        abspaths=True)
+            for f,ff in zip(modified,normalised_paths):
+                af = ArchiveFile(ff)
+                print "-- %s" % ff
+                for attr in d[f].compare(ff,attributes):
+                    print "   %s: %s != %s" % (attr,
+                                               getattr(af,attr),
+                                               d[f][attr])
     elif cmd == 'update':
         d = DirCache(dirn)
         if not d.exists:
