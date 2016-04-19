@@ -45,6 +45,7 @@ class TestDirCache(unittest.TestCase):
         create a new DirCache instance
         """
         dircache = DirCache(self.dirn)
+        self.assertEqual(dircache.dirn,self.dirn)
         self.assertEqual(len(dircache),4)
         self.assertEqual(dircache.files,
                          ['README.txt',
@@ -66,6 +67,7 @@ class TestDirCache(unittest.TestCase):
         create a new DirCache instance with MD5 checksums
         """
         dircache = DirCache(self.dirn,include_checksums=True)
+        self.assertEqual(dircache.dirn,self.dirn)
         self.assertEqual(len(dircache),4)
         self.assertEqual(dircache.files,
                          ['README.txt',

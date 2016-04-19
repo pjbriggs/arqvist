@@ -108,7 +108,14 @@ class DirCache(object):
 
     def __len__(self):
         return len(self._files)
-    
+
+    @property
+    def dirn(self):
+        """
+        Return path to the source directory
+        """
+        return self._dirn
+
     @property
     def cachedir(self):
         """
