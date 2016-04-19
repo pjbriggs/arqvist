@@ -349,10 +349,12 @@ class TestCacheFile(unittest.TestCase):
                          dateutil.parser.parse('2016-03-22 13:15:47.955909'))
         self.assertEqual(cachefile['mode'],'0664')
         self.assertEqual(getattr(cachefile,'mode'),'0664')
-        self.assertEqual(cachefile['uid'],'1000')
-        self.assertEqual(getattr(cachefile,'uid'),'1000')
-        self.assertEqual(cachefile['gid'],'1001')
-        self.assertEqual(getattr(cachefile,'gid'),'1001')
+        self.assertEqual(cachefile['uid'],1000)
+        self.assertEqual(getattr(cachefile,'uid'),1000)
+        self.assertEqual(cachefile['gid'],1001)
+        self.assertEqual(getattr(cachefile,'gid'),1001)
+        self.assertEqual(cachefile['target'],None)
+        self.assertEqual(getattr(cachefile,'target'),None)
 
     def test_cachefile_is_stale(self):
         """
