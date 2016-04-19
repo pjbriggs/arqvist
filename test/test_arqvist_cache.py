@@ -9,8 +9,49 @@ import os
 from arqvist.cache import FILE_ATTRIBUTES
 from arqvist.cache import DirCache
 from arqvist.cache import CacheFile
+from arqvist.cache import locate_cache_dir
 
+# Functions
 
+class TestLocateCacheDir(unittest.TestCase):
+    def setUp(self):
+        # Create test directory
+        self.dirn = utils.make_temp_dir()
+
+    def tearDown(self):
+        # Remove test directory and contents
+        utils.rmdir(self.dirn)
+
+    def test_no_cache_dir(self):
+        """
+        check locate_cache_dir when no cache dir present
+        """
+        new_dir = os.path.join(self.dirn,'dir1','dir2')
+        os.makedirs(new_dir)
+        self.assertEqual(locate_cache_dir(self.dirn),None)
+        self.assertEqual(locate_cache_dir(new_dir),None)
+
+    def test_with_cache_dir(self):
+        """
+        check locate_cache_dir when cache dir is present
+        """
+        new_dir = os.path.join(self.dirn,'dir1','dir2')
+        os.makedirs(os.path.join(new_dir,'.arqvist'))
+        with open(os.path.join(new_dir,'.arqvist','files'),'w') as fp:
+            fp.write('')
+        self.assertEqual(locate_cache_dir(self.dirn),None)
+        self.assertEqual(locate_cache_dir(new_dir),new_dir)
+
+    def test_with_cache_dir_parent(self):
+        """
+        check locate_cache_dir when cache dir is present in parent dir
+        """
+        new_dir = os.path.join(self.dirn,'dir1','dir2')
+        os.makedirs(os.path.join(self.dirn,'.arqvist'))
+        with open(os.path.join(self.dirn,'.arqvist','files'),'w') as fp:
+            fp.write('')
+        self.assertEqual(locate_cache_dir(self.dirn),self.dirn)
+        self.assertEqual(locate_cache_dir(new_dir),self.dirn)
 
 # DirCache
 

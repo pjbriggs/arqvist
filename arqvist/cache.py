@@ -462,3 +462,22 @@ class CacheFile(AttributeDictionary,object):
             except AttributeError:
                 pass
         return modified_attrs
+
+def locate_cache_dir(dirn):
+    """
+    Find DirCache directory on disk
+
+    Given a directory, locate a top-level DirCache directory
+    in either that directory, or one of its parents.
+
+    If no DirCache directory is found then return None, else
+    return the path to the directory.
+
+    """
+    if dirn is None:
+        dirn = os.getcwd()
+    while not os.path.exists(os.path.join(dirn,'.arqvist','files')):
+        if dirn == os.sep:
+            return None
+        dirn = os.path.dirname(dirn)
+    return dirn
