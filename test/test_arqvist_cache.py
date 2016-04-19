@@ -335,6 +335,22 @@ class TestDirCache(unittest.TestCase):
         self.assertEqual(untracked,[])
         self.assertFalse(dircache2.is_stale)
 
+    def test_normalise_relpaths(self):
+        """
+        test the DirCache.normalise_relpaths method
+        """
+        dircache = DirCache(self.dirn)
+        paths = ['README','data/S01.fq']
+        self.assertEqual(dircache.normalise_relpaths(paths),
+                         ['README','data/S01.fq'])
+        self.assertEqual(dircache.normalise_relpaths(paths,
+                                                     workdir=os.path.join(
+                                                         self.dirn,'data')),
+                         ['../README','S01.fq'])
+        self.assertEqual(dircache.normalise_relpaths(paths,
+                                                     abspaths=True),
+                         [os.path.join(self.dirn,p) for p in paths])
+
 # CacheFile
 
 class TestCacheFile(unittest.TestCase):

@@ -335,6 +335,36 @@ class DirCache(object):
                 deleted.append(f)
         return (deleted,modified,untracked)
 
+    def normalise_relpaths(self,paths,dirn=None,workdir=None,
+                           abspaths=False):
+        """
+        Transform a list of relative paths
+
+        Given a list of relative paths, returns a new list
+        where each path has been transformed as follows:
+
+        - each path is appended to the base directory
+          (defaults to the DirCache source directory)
+        - if absolute paths are not requested (``abspaths``
+          is False, i.e. the default) then each path is
+          subsequently made relative to the specified
+          working directory (also defaults to the DirCache
+          source directory)
+        - if absolute paths are requested then the working
+          directory is ignored, even if specified.
+
+        """
+        if dirn is None:
+            dirn = self._dirn
+        if workdir is None:
+            workdir = self._dirn
+        if not abspaths:
+            return [os.path.relpath(os.path.join(dirn,p),workdir)
+                    for p in paths]
+        else:
+            return [os.path.normpath(os.path.join(dirn,p))
+                    for p in paths]
+
     def save(self):
         """
         Write the cache data to disk
