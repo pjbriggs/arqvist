@@ -321,10 +321,10 @@ class DirCache(object):
         modified = []
         untracked = []
         for f in self._walk(dirn):
-            relpath = os.path.relpath(f,dirn)
-            if self.ignore(relpath):
+            if self.ignore(f,dirn):
                 continue
             try:
+                relpath = os.path.relpath(f,dirn)
                 cachefile = self[relpath]
                 if cachefile.compare(f,attributes):
                     modified.append(relpath)
