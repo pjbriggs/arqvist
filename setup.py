@@ -27,7 +27,8 @@ setup(
     maintainer_email = 'peter.briggs@manchester.ac.uk',
     packages = ['arqvist'],
     entry_points = { 'console_scripts':
-                     ['arqvist = arqvist.cli:main',]
+                     ['arqvist = arqvist.cli:main',
+                      'arqv = arqvist.arqv:main',]
                  },
     license = 'Artistic License',
     # Pull in dependencies
