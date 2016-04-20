@@ -122,11 +122,10 @@ def main(args=None):
                                                         abspaths=True)
             for f,ff in zip(modified,normalised_paths):
                 af = ArchiveFile(ff)
-                print "-- %s" % ff
+                print "arqv-diff a/%s b/%s" % (f,ff)
                 for attr in d[f].compare(ff,attributes):
-                    print "   %s: %s != %s" % (attr,
-                                               getattr(af,attr),
-                                               d[f][attr])
+                    print "old %s %s" % (attr,d[f][attr])
+                    print "new %s %s" % (attr,getattr(af,attr))
     elif cmd == 'update':
         d = DirCache(dirn)
         if not d.exists:
