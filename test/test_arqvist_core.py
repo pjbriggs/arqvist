@@ -29,6 +29,13 @@ class TestArchiveFile(unittest.TestCase):
         self.assertEqual(ArchiveFile(filen).type,'f')
         self.assertEqual(ArchiveFile(dirn).type,'d')
         self.assertEqual(ArchiveFile(link).type,'s')
+    def test_target(self):
+        filen = utils.make_file('test.txt',dirn=self.dir_)
+        dirn = utils.make_subdir(self.dir_,'test_dir')
+        link = utils.make_symlink('link','test.text',dirn=self.dir_)
+        self.assertEqual(ArchiveFile(filen).target,None)
+        self.assertEqual(ArchiveFile(dirn).target,None)
+        self.assertEqual(ArchiveFile(link).target,'test.text')
     def test_classifier(self):
         filen = utils.make_file('test.txt',dirn=self.dir_)
         self.assertEqual(ArchiveFile(filen).classifier,'')

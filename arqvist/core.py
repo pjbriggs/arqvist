@@ -140,6 +140,13 @@ class ArchiveFile(utils.PathInfo):
         return self._uncompressed_md5
 
     @property
+    def target(self):
+        if not self.is_link:
+            # Ignore non-symlinks
+            return None
+        return utils.Symlink(self.path).target
+
+    @property
     def classifier(self):
         """
         Return classifier for an ArchiveFile object
