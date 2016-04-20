@@ -129,7 +129,7 @@ class DirCache(object):
         Check if the cache exists on disk
         """
         return os.path.exists(os.path.join(self.cachedir,
-                                           'files'))
+                                           'manifest'))
 
     @property
     def files(self):
@@ -270,7 +270,7 @@ class DirCache(object):
                         continue
                     self._ignore.append(line)
         # Cached files
-        filecache = os.path.join(self.cachedir,'files')
+        filecache = os.path.join(self.cachedir,'manifest')
         if not os.path.exists(filecache):
             return False
         with open(filecache,'r') as fp:
@@ -453,13 +453,13 @@ class DirCache(object):
                                          for x in self._file_attributes]))
         fp.close()
         # Make copy of old file
-        if os.path.exists(os.path.join(self.cachedir,'files')):
-            shutil.copy2(os.path.join(self.cachedir,'files'),
-                         os.path.join(self.cachedir,'files.bak'))
+        if os.path.exists(os.path.join(self.cachedir,'manifest')):
+            shutil.copy2(os.path.join(self.cachedir,'manifest'),
+                         os.path.join(self.cachedir,'manifest.bak'))
         # Move new version
-        shutil.move(fname,os.path.join(self.cachedir,'files'))
+        shutil.move(fname,os.path.join(self.cachedir,'manifest'))
         # Set permissions
-        os.chmod(os.path.join(self.cachedir,'files'),0664)
+        os.chmod(os.path.join(self.cachedir,'manifest'),0664)
 
 class CacheFile(AttributeDictionary,object):
     """
@@ -578,7 +578,7 @@ def locate_cache_dir(dirn):
     """
     if dirn is None:
         dirn = os.getcwd()
-    while not os.path.exists(os.path.join(dirn,'.arqvist','files')):
+    while not os.path.exists(os.path.join(dirn,'.arqvist','manifest')):
         if dirn == os.sep:
             return None
         dirn = os.path.dirname(dirn)

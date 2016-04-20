@@ -37,7 +37,7 @@ class TestLocateCacheDir(unittest.TestCase):
         """
         new_dir = os.path.join(self.dirn,'dir1','dir2')
         os.makedirs(os.path.join(new_dir,'.arqvist'))
-        with open(os.path.join(new_dir,'.arqvist','files'),'w') as fp:
+        with open(os.path.join(new_dir,'.arqvist','manifest'),'w') as fp:
             fp.write('')
         self.assertEqual(locate_cache_dir(self.dirn),None)
         self.assertEqual(locate_cache_dir(new_dir),new_dir)
@@ -48,7 +48,7 @@ class TestLocateCacheDir(unittest.TestCase):
         """
         new_dir = os.path.join(self.dirn,'dir1','dir2')
         os.makedirs(os.path.join(self.dirn,'.arqvist'))
-        with open(os.path.join(self.dirn,'.arqvist','files'),'w') as fp:
+        with open(os.path.join(self.dirn,'.arqvist','manifest'),'w') as fp:
             fp.write('')
         self.assertEqual(locate_cache_dir(self.dirn),self.dirn)
         self.assertEqual(locate_cache_dir(new_dir),self.dirn)
@@ -137,11 +137,11 @@ class TestDirCache(unittest.TestCase):
         """
         # No cache
         self.assertFalse(DirCache(self.dirn).exists)
-        # Cache dir but no files
+        # Cache dir but no manifest
         os.mkdir(os.path.join(self.dirn,'.arqvist'))
         self.assertFalse(DirCache(self.dirn).exists)
-        # Cache dir with files
-        with open(os.path.join(self.dirn,'.arqvist','files'),'w') as fp:
+        # Cache dir with manifest
+        with open(os.path.join(self.dirn,'.arqvist','manifest'),'w') as fp:
             fp.write('')
         self.assertTrue(DirCache(self.dirn).exists)
 
@@ -155,7 +155,7 @@ class TestDirCache(unittest.TestCase):
         self.assertTrue(dircache.exists)
         self.assertTrue(os.path.isdir(dircache.cachedir))
         self.assertTrue(os.path.exists(os.path.join(dircache.cachedir,
-                                                    'files')))
+                                                    'manifest')))
         self.assertFalse(dircache.is_stale)
         deleted,modified,untracked = dircache.status()
         self.assertEqual(deleted,[])
@@ -340,7 +340,7 @@ class TestDirCache(unittest.TestCase):
         test the DirCache.ignore method
         """
         os.makedirs(os.path.join(self.dirn,'.arqvist'))
-        with open(os.path.join(self.dirn,'.arqvist','files'),'w') as fp:
+        with open(os.path.join(self.dirn,'.arqvist','manifest'),'w') as fp:
             fp.write('')
         with open(os.path.join(self.dirn,'.arqvist','ignore'),'w') as fp:
             fp.write('#ignore\n*~\ndir2/*\n')
