@@ -50,12 +50,18 @@ def main(args=None):
                              "any parent up to %s)\n" % os.sep)
             sys.exit(1)
         pathspec = args
+    attributes = ['type',
+                  'size',
+                  'timestamp',
+                  'uid',
+                  'gid',
+                  'mode',
+                  'target',]
     if cmd == 'init':
         d = DirCache(dirn,include_checksums=options.checksums)
         d.save()
     elif cmd == 'status' or cmd == 'diff':
         d = DirCache(dirn)
-        print dirn
         if options.target_dir is None:
             target_dir = dirn
         else:
@@ -67,13 +73,17 @@ def main(args=None):
                        (os.path.relpath(f,dirn)
                         if f.startswith(dirn) else f),
                        [os.path.abspath(f) for f in pathspec])
-        attributes = ['type',
-                      'size',
-                      'timestamp',
-                      'uid',
-                      'gid',
-                      'mode',]
         if options.checksums:
+            missing_checksums = []
+            for f in d.files:
+                if d[f].type is 'f' and d[f].md5 is None:
+                    missing_checksums.append(f)
+            if missing_checksums:
+                print "\nMissing checksums:"
+                for f in missing_checksums:
+                    print "\t%s" % f
+                sys.stderr.write("\n-c: unsafe, some checksums missing\n")
+                sys.exit(1)
             attributes.append('md5')
         deleted,modified,untracked = d.status(target_dir,
                                               pathspec,
@@ -113,6 +123,8 @@ def main(args=None):
                 for f in untracked:
                     print "\t%s" % f
         elif cmd == 'diff':
+            if not (deleted or modified or untracked):
+                sys.exit(0)
             if target_dir == d.dirn:
                 normalised_paths = d.normalise_relpaths(modified,
                                                         workdir=os.getcwd())
@@ -128,10 +140,12 @@ def main(args=None):
                     print "new %s %s" % (attr,getattr(af,attr))
     elif cmd == 'update':
         d = DirCache(dirn)
+        deleted,modified,untracked = d.status(dirn,pathspec,attributes)
+        changed = (deleted or modified or untracked)
         if not d.exists:
             sys.stderr.write("%s: no cache on disk\n")
             sys.exit(1)
-        if not d.is_stale and not options.checksums:
+        if not changed and not options.checksums:
             sys.stderr.write("already up to date\n")
         else:
             d.update(pathspec,include_checksums=options.checksums)
