@@ -513,3 +513,58 @@ class TestCacheFile(unittest.TestCase):
         self.assertTrue(cachefile.is_stale(478,
                         dateutil.parser.parse('2016-03-22 13:16:22.087889')))
 
+    def test_create_cachefile_for_symlink(self):
+        """
+        create a CacheFile instance for a symbolic link
+        """
+        cachefile = CacheFile('test/slink',
+                              type='s',
+                              size='7',
+                              timestamp='2016-03-30 14:56:50.324644',
+                              mode='0777',
+                              uid='1000',
+                              gid='1001',
+                              target='file.txt')
+        self.assertEqual(cachefile.attributes,FILE_ATTRIBUTES)
+        self.assertEqual(cachefile['relpath'],'test/slink')
+        self.assertEqual(getattr(cachefile,'relpath'),'test/slink')
+        self.assertEqual(cachefile['basename'],'slink')
+        self.assertEqual(getattr(cachefile,'basename'),'slink')
+        self.assertEqual(cachefile['ext'],'')
+        self.assertEqual(getattr(cachefile,'ext'),'')
+        self.assertEqual(cachefile['compression'],'')
+        self.assertEqual(getattr(cachefile,'compression'),'')
+        self.assertEqual(cachefile['type'],'s')
+        self.assertEqual(getattr(cachefile,'type'),'s')
+        self.assertEqual(cachefile['size'],7)
+        self.assertEqual(getattr(cachefile,'size'),7)
+        self.assertEqual(cachefile['timestamp'],
+                         dateutil.parser.parse('2016-03-30 14:56:50.324644'))
+        self.assertEqual(getattr(cachefile,'timestamp'),
+                         dateutil.parser.parse('2016-03-30 14:56:50.324644'))
+        self.assertEqual(cachefile['mode'],'0777')
+        self.assertEqual(getattr(cachefile,'mode'),'0777')
+        self.assertEqual(cachefile['uid'],1000)
+        self.assertEqual(getattr(cachefile,'uid'),1000)
+        self.assertEqual(cachefile['gid'],1001)
+        self.assertEqual(getattr(cachefile,'gid'),1001)
+        self.assertEqual(cachefile['target'],'file.txt')
+        self.assertEqual(getattr(cachefile,'target'),'file.txt')
+
+    def test_cachefile_symlink_is_stale(self):
+        """
+        check that 'is_stale' method works correctly for symlink cache file
+        """
+        cachefile = CacheFile('test/slink',
+                              type='s',
+                              size='7',
+                              timestamp='2016-03-22 13:15:47.955909',
+                              target='file.txt')
+        self.assertFalse(cachefile.is_stale(7,
+                        dateutil.parser.parse('2016-03-22 13:15:47.955909')))
+        self.assertTrue(cachefile.is_stale(478,
+                        dateutil.parser.parse('2016-03-22 13:15:47.955909')))
+        self.assertTrue(cachefile.is_stale(7,
+                        dateutil.parser.parse('2016-03-22 13:16:22.087889')))
+        self.assertTrue(cachefile.is_stale(478,
+                        dateutil.parser.parse('2016-03-22 13:16:22.087889')))

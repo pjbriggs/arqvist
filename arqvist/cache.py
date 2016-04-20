@@ -18,6 +18,7 @@ import fnmatch
 from .core import ArchiveFile
 from .core import get_file_extensions
 from bcftbx.utils import AttributeDictionary
+from bcftbx.utils import Symlink
 import bcftbx.utils as bcfutils
 
 FILE_ATTRIBUTES = ('basename',
@@ -31,6 +32,7 @@ FILE_ATTRIBUTES = ('basename',
                    'compression',
                    'md5',
                    'uncompressed_md5',
+                   'target',
                    'relpath',)
 
 class DirCache(object):
@@ -205,6 +207,9 @@ class DirCache(object):
                               mode=f.mode,
                               uid=f.uid,
                               gid=f.gid)
+        # Handle symlinks
+        if f.is_link:
+            cachefile['target'] = Symlink(fn).target
         # Generate checksums
         if include_checksums:
             cachefile['md5'] = f.md5
@@ -538,14 +543,15 @@ class CacheFile(AttributeDictionary,object):
         """
         Check if cached attributes differ from supplied values
 
-        Note that the test is only implemented for files; all
-        other types return False without any tests.
+        Note that for directories, only the timestamp is
+        checked; for other file types both timestamp and size
+        is checked.
 
         """
-        if self.type == 'f':
-            return (size != self.size or timestamp != self.timestamp)
+        if self.type == 'd':
+            return (timestamp != self.timestamp)
         else:
-            return False
+            return (size != self.size or timestamp != self.timestamp)
 
     def compare(self,path,attributes=('size','timestamp')):
         """
