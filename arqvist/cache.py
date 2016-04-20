@@ -215,9 +215,19 @@ class DirCache(object):
             cachefile['md5'] = f.md5
             cachefile['uncompressed_md5'] = f.uncompressed_md5
         # Store in the index
-        if relpath in self._files:
-            print "%s: updating cache" % relpath
-        self._files[relpath] = cachefile
+        if relpath not in self._files:
+            # New entry
+            self._files[relpath] = cachefile
+        else:
+            # Update existing entry if necessary
+            for attr in cachefile.attributes:
+                if not include_checksums \
+                   and attr in ('md5','uncompressed_md5'):
+                    continue
+                if cachefile[attr] != self._files[relpath][attr]:
+                    print "updating %s" % relpath
+                    self._files[relpath] = cachefile
+                    break
 
     def build(self,pathspec=None,include_checksums=False):
         """
