@@ -214,26 +214,43 @@ class DirCache(object):
             print "%s: updating cache" % relpath
         self._files[relpath] = cachefile
 
-    def build(self,include_checksums=False):
+    def build(self,pathspec=None,include_checksums=False):
         """
         Build the cache in memory
-        """
-        for f in self._walk():
-            if self.ignore(f):
-                continue
-            self._add_file(f,include_checksums=include_checksums)
-
-    def update(self,include_checksums=False):
-        """
-        Update the cache in memory
 
         Arguments:
+          pathspec (list): if set then should be a list of
+            path specification patterns used to filter the
+            files that will be include (default is to include
+            all files)
           include_checksums (bool): if True then
             also generate MD5 checksums (default is
             False)
 
         """
-        self.build(include_checksums=include_checksums)
+        for f in self._walk():
+            if self.ignore(f):
+                continue
+            if pathspec and not self.pathspec(f,pathspec):
+                continue
+            self._add_file(f,include_checksums=include_checksums)
+
+    def update(self,pathspec=None,include_checksums=False):
+        """
+        Update the cache in memory
+
+        Arguments:
+          pathspec (list): if set then should be a list of
+            path specification patterns used to filter the
+            files that will be updated (default is to update
+            all files)
+          include_checksums (bool): if True then
+            also generate MD5 checksums (default is
+            False)
+
+        """
+        self.build(pathspec=pathspec,
+                   include_checksums=include_checksums)
         for f in self.files:
             if not os.path.lexists(os.path.join(self._dirn,f)):
                 print "%s: removing" % f
@@ -286,12 +303,63 @@ class DirCache(object):
         """
         if dirn is None:
             dirn = self._dirn
+        if os.path.isabs(f):
+            relpath = os.path.relpath(f,dirn)
+        else:
+            relpath = f
         for pattern in self._ignore:
-            if fnmatch.fnmatch(os.path.relpath(f,dirn),pattern):
+            if fnmatch.fnmatch(relpath,pattern):
                 return True
         return False
 
-    def status(self,dirn=None,attributes=('type','size',)):
+    def pathspec(self,f,pathspec,dirn=None):
+        """
+        Check if file matches glob-style patterns
+
+        Given a file path ``f`` (which can be relative
+        to the DirCach parent directory, or an absolute
+        path in an arbitrary location), determine if this
+        matches one of the glob-style patterns in the
+        ``pathspec`` list.
+
+        If any pattern ends with a ``/`` then this will
+        be removed.
+
+        Additionally for each pattern ``p`` which is
+        specified, a second 'implicit' pattern of ``p/*``
+        will also be checked (to match directory
+        contents).
+
+        Arguments:
+          f (str): file path
+          pathspec (list): a list of glob-style path
+            specification patterns that the file will be
+            checked
+          dirn (str): optional base directory that
+            will be used as the reference directory
+            for converting absolute paths to relative
+            ones
+
+        """
+        if dirn is None:
+            dirn = self._dirn
+        if os.path.isabs(f):
+            relpath = os.path.relpath(f,dirn)
+        else:
+            relpath = f
+        for pattern in pathspec:
+            if pattern.endswith(os.sep):
+                pattern = pattern[:-1]
+            if fnmatch.fnmatch(relpath,pattern):
+                return True
+            pattern += os.sep + '*'
+            if fnmatch.fnmatch(relpath,pattern):
+                return True
+        return reduce(lambda x,p:
+                      x or fnmatch.fnmatch(relpath,p),
+                      pathspec,False)
+
+    def status(self,dirn=None,pathspec=None,attributes=('type','size',)):
         """
         Check the cache against a source directory
 
@@ -323,6 +391,8 @@ class DirCache(object):
         for f in self._walk(dirn):
             if self.ignore(f,dirn):
                 continue
+            if pathspec and not self.pathspec(f,pathspec,dirn=dirn):
+                continue
             try:
                 relpath = os.path.relpath(f,dirn)
                 cachefile = self[relpath]
@@ -331,6 +401,8 @@ class DirCache(object):
             except KeyError:
                 untracked.append(relpath)
         for f in self.files:
+            if pathspec and not self.pathspec(f,pathspec,dirn=dirn):
+                continue
             if not os.path.lexists(os.path.join(dirn,f)):
                 deleted.append(f)
         return (deleted,modified,untracked)

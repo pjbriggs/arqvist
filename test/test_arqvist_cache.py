@@ -335,6 +335,87 @@ class TestDirCache(unittest.TestCase):
         self.assertEqual(untracked,[])
         self.assertFalse(dircache2.is_stale)
 
+    def test_ignore(self):
+        """
+        test the DirCache.ignore method
+        """
+        os.makedirs(os.path.join(self.dirn,'.arqvist'))
+        with open(os.path.join(self.dirn,'.arqvist','files'),'w') as fp:
+            fp.write('')
+        with open(os.path.join(self.dirn,'.arqvist','ignore'),'w') as fp:
+            fp.write('#ignore\n*~\ndir2/*\n')
+        dircache = DirCache(self.dirn)
+        # Commented lines
+        self.assertFalse(dircache.ignore('ignore'))
+        # Relative paths
+        self.assertFalse(dircache.ignore('README'))
+        self.assertFalse(dircache.ignore('dir1/README'))
+        self.assertTrue(dircache.ignore('dir2/README'))
+        self.assertTrue(dircache.ignore('README~'))
+        self.assertTrue(dircache.ignore('dir1/README~'))
+        self.assertTrue(dircache.ignore('dir2/README~'))
+        # Absolute paths within reference directory
+        self.assertFalse(dircache.ignore(os.path.join(self.dirn,'README')))
+        self.assertFalse(dircache.ignore(os.path.join(self.dirn,'dir1/README')))
+        self.assertTrue(dircache.ignore(os.path.join(self.dirn,'dir2/README')))
+        self.assertTrue(dircache.ignore(os.path.join(self.dirn,'README~')))
+        self.assertTrue(dircache.ignore(os.path.join(self.dirn,'dir1/README~')))
+        self.assertTrue(dircache.ignore(os.path.join(self.dirn,'dir2/README~')))
+        # Absolute paths within arbitrary directory
+        self.assertFalse(dircache.ignore('/test/dir/README',dirn='/test/dir'))
+        self.assertFalse(dircache.ignore('/test/dir/dir1/README',
+                                         dirn='/test/dir'))
+        self.assertTrue(dircache.ignore('/test/dir/dir2/README',
+                                         dirn='/test/dir'))
+        self.assertTrue(dircache.ignore('/test/dir/README~',dirn='/test/dir'))
+        self.assertTrue(dircache.ignore('/test/dir/dir1/README~',
+                                         dirn='/test/dir'))
+        self.assertTrue(dircache.ignore('/test/dir/dir2/README~',
+                                         dirn='/test/dir'))
+
+    def test_pathspec_relative_paths(self):
+        """
+        test the DirCache.pathspec method with relative paths
+        """
+        dircache = DirCache(self.dirn)
+        pathspec = ('R*','dir1',)
+        # Relative paths
+        self.assertFalse(dircache.pathspec(os.path.join(self.dirn,
+                                                        'DONTREADME'),
+                                           pathspec))
+        self.assertTrue(dircache.pathspec(os.path.join(self.dirn,'README'),
+                                          pathspec))
+        self.assertTrue(dircache.pathspec(os.path.join(self.dirn,'dir1'),
+                                          pathspec))
+        self.assertTrue(dircache.pathspec(os.path.join(self.dirn,'dir1/'),
+                                          pathspec))
+        self.assertTrue(dircache.pathspec(os.path.join(self.dirn,
+                                                       'dir1/file.txt'),
+                                          pathspec))
+        self.assertFalse(dircache.pathspec(os.path.join(self.dirn,'dir2'),
+                                           pathspec))
+        self.assertFalse(dircache.pathspec(os.path.join(self.dirn,'dir2/'),
+                                           pathspec))
+        self.assertFalse(dircache.pathspec(os.path.join(self.dirn,
+                                                        'dir2/file.txt'),
+                                           pathspec))
+
+    def test_pathspec_absolute_paths(self):
+        """
+        test the DirCache.pathspec method with absolute paths
+        """
+        dircache = DirCache(self.dirn)
+        pathspec = ('R*','dir1',)
+        # Relative paths
+        self.assertFalse(dircache.pathspec('DONTREADME',pathspec))
+        self.assertTrue(dircache.pathspec('README',pathspec))
+        self.assertTrue(dircache.pathspec('dir1',pathspec))
+        self.assertTrue(dircache.pathspec('dir1/',pathspec))
+        self.assertTrue(dircache.pathspec('dir1/file.txt',pathspec))
+        self.assertFalse(dircache.pathspec('dir2',pathspec))
+        self.assertFalse(dircache.pathspec('dir2/',pathspec))
+        self.assertFalse(dircache.pathspec('dir2/file.txt',pathspec))
+
     def test_normalise_relpaths(self):
         """
         test the DirCache.normalise_relpaths method
