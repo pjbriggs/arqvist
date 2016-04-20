@@ -17,9 +17,9 @@ from .cache import locate_cache_dir
 def main(args=None):
     p = CommandParser()
     p.add_command('init',usage="%prog init [directory]")
-    p.add_command('status',usage="%prog status")
-    p.add_command('diff',usage="%prog diff")
-    p.add_command('update',usage="%prog update")
+    p.add_command('status',usage="%prog status [options] <pathspec>")
+    p.add_command('diff',usage="%prog diff [options] <pathspec>")
+    p.add_command('update',usage="%prog update [options] <pathspec>")
     for cmd in ('status','diff'):
         p.parser_for(cmd).add_option('-t','--target',action='store',
                                      dest='target_dir',default=None,
@@ -49,6 +49,7 @@ def main(args=None):
             sys.stderr.write("fatal: Not an arqvist cache (or "
                              "any parent up to %s)\n" % os.sep)
             sys.exit(1)
+        pathspec = args
     if cmd == 'init':
         d = DirCache(dirn,include_checksums=options.checksums)
         d.save()
@@ -60,6 +61,12 @@ def main(args=None):
         else:
             target_dir = os.path.abspath(options.target_dir)
             print "\nComparing with %s" % target_dir
+        pathspec = map(lambda f:
+                       os.path.relpath(f,target_dir)
+                       if f.startswith(target_dir) else
+                       (os.path.relpath(f,dirn)
+                        if f.startswith(dirn) else f),
+                       [os.path.abspath(f) for f in pathspec])
         attributes = ['type',
                       'size',
                       'timestamp',
@@ -69,6 +76,7 @@ def main(args=None):
         if options.checksums:
             attributes.append('md5')
         deleted,modified,untracked = d.status(target_dir,
+                                              pathspec,
                                               attributes)
         if cmd == 'status':
             if not (deleted or modified or untracked):
@@ -127,7 +135,7 @@ def main(args=None):
         if not d.is_stale and not options.checksums:
             sys.stderr.write("already up to date\n")
         else:
-            d.update(include_checksums=options.checksums)
+            d.update(pathspec,include_checksums=options.checksums)
             d.save()
             print "%s: cache updated" % dirn
 
