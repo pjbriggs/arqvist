@@ -1,16 +1,58 @@
 arqvist: explore & curate NGS data
 ==================================
 
+**This project is a work-in-progress**
+
 Aims
 ****
 
-The initial aim is to automate each stage so that it is easy to return
-to a partially processed directory and be able to review and pick up
-again with minimal effort.
+``arqvist`` aims to provide tools for managing and curating NGS data
+which are stored within directories.
 
-A secondary aim is to automate the process of examining data to
-uncover relationships between data files, understand and annotate the
-contents, and safely remove files that are no longer required.
+The initial aims are:
+
+- enable verification of data when relocating on physical storage,
+  and identification of changes
+- enable capture and restoration of properties such as timestamps,
+  ownership and file permissions
+
+Downstream aims include:
+
+- checking for duplicated data
+- cleaning up by compressing large files and removing files that
+  are no longer required
+- adding metadata to describe the data
+- facilitate auditing and discovery
+
+Installation
+************
+
+``arqvist`` depends on the ``genomics-bcftbx`` and ``auto_process_ngs``
+Python modules.
+
+To install directly from GitHub::
+
+    pip install -r https://github.com/pjbriggs/arqvist/raw/master/requirements.txt
+    pip install git+https://github.com/pjbriggs/arqvist.git
+
+Quickstart
+**********
+
+Record properties for the current directory::
+
+    arqv init
+
+See which files have changed properties::
+
+    arqv status
+
+Find out which properties have changed::
+
+    arqv diff
+
+Check whether a copy of the directory differs from the source::
+
+    arqv status -t /data/run1_copy
 
 Dependencies
 ************
