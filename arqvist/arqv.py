@@ -11,6 +11,26 @@ from .cache import DirCache
 from .cache import locate_cache_dir
 
 #######################################################################
+# Formatting terminal output
+#######################################################################
+
+BLUE = '\033[94m'
+GREEN = '\033[92m'
+ORANGE = '\033[93m'
+RED = '\033[91m'
+BOLD = '\033[1m'
+ENDC = '\033[0m'
+
+def cprint(s,codes):
+    if os.isatty(sys.stdout.fileno()):
+        try:
+            print "%s%s%s" % (''.join(codes),s,ENDC)
+            return
+        except Exception:
+            pass
+    print s
+
+#######################################################################
 # Main program
 #######################################################################
 
@@ -114,14 +134,14 @@ def main(args=None):
                 print
                 print "Changes to tracked files:"
                 for f in deleted:
-                    print "\tdeleted:    %s" % f
+                    cprint("\tdeleted:    %s" % f,BOLD+RED)
                 for f in modified:
-                    print "\tmodified:   %s" % f
+                    cprint("\tmodified:   %s" % f,BOLD+RED)
             if untracked:
                 print
                 print "Untracked files:"
                 for f in untracked:
-                    print "\t%s" % f
+                    cprint("\t%s" % f,BOLD+BLUE)
         elif cmd == 'diff':
             if not (deleted or modified or untracked):
                 sys.exit(0)
@@ -134,10 +154,10 @@ def main(args=None):
                                                         abspaths=True)
             for f,ff in zip(modified,normalised_paths):
                 af = ArchiveFile(ff)
-                print "arqv-diff a/%s b/%s" % (f,ff)
+                cprint("arqv-diff a/%s b/%s" % (f,ff),BOLD)
                 for attr in d[f].compare(ff,attributes):
-                    print "old %s %s" % (attr,d[f][attr])
-                    print "new %s %s" % (attr,getattr(af,attr))
+                    cprint("old %s %s" % (attr,d[f][attr]),BOLD+GREEN)
+                    cprint("new %s %s" % (attr,getattr(af,attr)),BOLD+RED)
     elif cmd == 'update':
         d = DirCache(dirn)
         deleted,modified,untracked = d.status(dirn,pathspec,attributes)
