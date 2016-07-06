@@ -430,9 +430,6 @@ class DirCache(object):
             if pathspec and not self.pathspec(f,pathspec,dirn=dirn):
                 continue
             filepath = os.path.join(dirn,f)
-            if not ArchiveFile(filepath).is_readable \
-               and f not in unreadable:
-                unreadable.append(f)
             if not os.path.lexists(filepath):
                 deleted.append(f)
             else:
@@ -440,6 +437,9 @@ class DirCache(object):
                 if f not in modified and cachefile.compare(filepath,
                                                            attributes):
                     modified.append(f)
+                if not ArchiveFile(filepath).is_readable \
+                   and f not in unreadable:
+                    unreadable.append(f)
         return (deleted,modified,untracked,unreadable)
 
     def normalise_relpaths(self,paths,dirn=None,workdir=None,
