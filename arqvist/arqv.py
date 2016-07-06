@@ -142,7 +142,7 @@ def main(args=None):
                 print
                 print "Changes to tracked files:"
                 for f in deleted:
-                    cprint("\tdeleted:    %s" % f,BOLD+RED)
+                    cprint("\tmissing:    %s" % f,BOLD+RED)
                 for f in modified:
                     cprint("\tmodified:   %s" % f,BOLD+RED)
             if untracked:
