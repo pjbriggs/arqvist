@@ -100,10 +100,7 @@ def main(args=None):
                         if f.startswith(dirn) else f),
                        [os.path.abspath(f) for f in pathspec])
         if options.checksums:
-            missing_checksums = []
-            for f in d.files:
-                if d[f].type is 'f' and d[f].md5 is None:
-                    missing_checksums.append(f)
+            missing_checksums = d.missing_checksums
             if missing_checksums:
                 print "\nMissing checksums:"
                 for f in missing_checksums:

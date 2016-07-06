@@ -150,6 +150,17 @@ class DirCache(object):
             return True
         return False
 
+    @property
+    def missing_checksums(self):
+        """
+        Return list of files without MD5 checksums
+        """
+        missing_checksums = []
+        for f in self.files:
+            if self[f].type is 'f' and self[f].md5 is None:
+                missing_checksums.append(f)
+        return missing_checksums
+
     def _walk(self,dirn=None):
         """
         Internal: walk the source directory structure
