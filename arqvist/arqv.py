@@ -59,7 +59,7 @@ def main(args=None):
             dirn = os.path.abspath(args[0])
         else:
             p.error("Usage: init [directory]")
-        existing_dirn = locate_cache(dirn)
+        existing_dirn = locate_cache_dir(dirn)
         if existing_dirn is not None:
             sys.stderr.write("\n%s: already initialised\n" % existing_dirn)
             sys.exit(1)
