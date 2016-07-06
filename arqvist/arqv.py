@@ -80,10 +80,10 @@ def main(args=None):
     if cmd == 'init':
         d = DirCache(dirn,include_checksums=options.checksums)
         d.save()
-        dltd,mdfd,untrckd,unrchbl = d.status(dirn)
-        if unrchbl:
-            sys.stderr.write("\n%s: unreachable files found:\n" % dirn)
-            for f in unrchbl:
+        dltd,mdfd,untrckd,unrdbl = d.status(dirn)
+        if unrdbl:
+            sys.stderr.write("\n%s: unreadable files found:\n" % dirn)
+            for f in unrdbl:
                 sys.stderr.write("\t%s\n" % f)
             sys.exit(1)
     elif cmd == 'status' or cmd == 'diff':
@@ -111,14 +111,14 @@ def main(args=None):
                 sys.stderr.write("\n-c: unsafe, some checksums missing\n")
                 sys.exit(1)
             attributes.append('md5')
-        deleted,modified,untracked,unreachable = d.status(target_dir,
-                                                          pathspec,
-                                                          attributes)
+        deleted,modified,untracked,unreadable = d.status(target_dir,
+                                                         pathspec,
+                                                         attributes)
         if cmd == 'status':
             if not (deleted or modified or untracked):
                 msg = "\nno differences compared to cache"
-                if unreachable:
-                    msg += " (but unreachable files found)"
+                if unreadable:
+                    msg += " (but unreadable files found)"
                 print msg
             else:
                 if target_dir == d.dirn:
@@ -150,10 +150,10 @@ def main(args=None):
                 print "Untracked files:"
                 for f in untracked:
                     cprint("\t%s" % f,BOLD+BLUE)
-            if unreachable:
+            if unreadable:
                 print
-                print "Unreachable files:"
-                for f in unreachable:
+                print "Unreadable files:"
+                for f in unreadable:
                     cprint("\t%s" % f,BOLD+RED)
         elif cmd == 'diff':
             if not (deleted or modified or untracked):
@@ -173,7 +173,7 @@ def main(args=None):
                     cprint("new %s %s" % (attr,getattr(af,attr)),BOLD+RED)
     elif cmd == 'update':
         d = DirCache(dirn)
-        deleted,modified,untracked,unreachable = d.status(dirn,
+        deleted,modified,untracked,unreadable = d.status(dirn,
                                                           pathspec,
                                                           attributes)
         changed = (deleted or modified or untracked)
@@ -186,10 +186,10 @@ def main(args=None):
             d.update(pathspec,include_checksums=options.checksums)
             d.save()
             print "%s: cache updated" % dirn
-        deleted,modified,untracked,unreachable = d.status(dirn)
-        if unreachable:
-            sys.stderr.write("\n%s: unreachable files found:\n" % dirn)
-            for f in unreachable:
+        deleted,modified,untracked,unreadable = d.status(dirn)
+        if unreadable:
+            sys.stderr.write("\n%s: unreadable files found:\n" % dirn)
+            for f in unreadable:
                 sys.stderr.write("\t%s\n" % f)
             sys.exit(1)
 

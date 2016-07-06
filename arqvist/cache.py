@@ -76,7 +76,7 @@ class DirCache(object):
     To get lists of the modified, new (aka 'untracked') or
     deleted files use the 'status' method, e.g.:
 
-    >>> delelted,modified,untracked,unreachable = c.status()
+    >>> deleted,modified,untracked,unreadable = c.status()
 
     To update the cache in memory use the 'update' method;
     (note that the cache must then be explicitly rewritten to
@@ -162,6 +162,11 @@ class DirCache(object):
         Optionally it can be used to traverse an
         alternative directory structure by explicitly
         specifying the ``dirn`` argument.
+
+        Note that if any unreadable subdirectories are
+        encountered then these will not be traversed by
+        ``_walk`` (even if the contents themselves are
+        readable).
 
         """
         if dirn is None:
@@ -267,9 +272,12 @@ class DirCache(object):
         self.build(pathspec=pathspec,
                    include_checksums=include_checksums)
         for f in self.files:
-            if not os.path.lexists(os.path.join(self._dirn,f)):
+            filepath = os.path.join(self._dirn,f)
+            if not os.path.lexists(filepath):
                 print "%s: removing" % f
                 del(self._files[f])
+            else:
+                self._add_file(filepath)
 
     def load(self):
         """
@@ -395,7 +403,7 @@ class DirCache(object):
         this directory is checked instead.
 
         Returns a tuple of lists of deleted, modified,
-        untracked and unreachable files.
+        untracked and unreadable files.
 
         """
         if dirn is None:
@@ -403,17 +411,15 @@ class DirCache(object):
         deleted = []
         modified = []
         untracked = []
-        unreachable = []
+        unreadable = []
         for f in self._walk(dirn):
             if self.ignore(f,dirn):
                 continue
             if pathspec and not self.pathspec(f,pathspec,dirn=dirn):
                 continue
             relpath = os.path.relpath(f,dirn)
-            mode = str(ArchiveFile(f).mode)
-            if int(mode[1]) < 4:
-                unreachable.append(relpath)
-                continue
+            if not ArchiveFile(f).is_readable:
+                unreadable.append(relpath)
             try:
                 cachefile = self[relpath]
                 if cachefile.compare(f,attributes):
@@ -423,9 +429,18 @@ class DirCache(object):
         for f in self.files:
             if pathspec and not self.pathspec(f,pathspec,dirn=dirn):
                 continue
-            if not os.path.lexists(os.path.join(dirn,f)):
+            filepath = os.path.join(dirn,f)
+            if not ArchiveFile(filepath).is_readable \
+               and f not in unreadable:
+                unreadable.append(f)
+            if not os.path.lexists(filepath):
                 deleted.append(f)
-        return (deleted,modified,untracked,unreachable)
+            else:
+                cachefile = self[f]
+                if f not in modified and cachefile.compare(filepath,
+                                                           attributes):
+                    modified.append(f)
+        return (deleted,modified,untracked,unreadable)
 
     def normalise_relpaths(self,paths,dirn=None,workdir=None,
                            abspaths=False):
