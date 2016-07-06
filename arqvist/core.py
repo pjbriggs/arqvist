@@ -762,6 +762,7 @@ def get_file_extensions(filen):
     once any compression extension has been removed.
 
     For example:
+
     >>> get_file_extensions('test')
     ('','')
     >>> get_file_extensions('test.bz2')
@@ -773,13 +774,26 @@ def get_file_extensions(filen):
     >>> get_file_extensions('test.file.fastq.gz')
     ('fastq','gz')
 
+    For hidden files (i.e. where the name starts with a
+    dot e.g. '.hidden'):
+
+    >>> get_file_extensions('.hidden')
+    ('','')
+    >>> get_file_extensions('.hidden.txt')
+    ('txt','')
+
     """
     ext = ''
     compression = ''
     file_parts = os.path.basename(filen).split('.')
-    if file_parts[-1] in ('gz','bz2'):
-        compression = file_parts[-1]
-        file_parts = file_parts[:-1]
+    if filen.startswith('.'):
+        file_parts = file_parts[2:]
+    try:
+        if file_parts[-1] in ('gz','bz2'):
+            compression = file_parts[-1]
+            file_parts = file_parts[:-1]
+    except IndexError:
+        pass
     if len(file_parts) > 1:
         ext = file_parts[-1]
     return (ext,compression)

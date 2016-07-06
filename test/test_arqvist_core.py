@@ -279,6 +279,9 @@ class TestGetFileExtensions(unittest.TestCase):
         self.assertEqual(get_file_extensions('test.fastq'),('fastq',''))
         self.assertEqual(get_file_extensions('test.fastq.gz'),('fastq','gz'))
         self.assertEqual(get_file_extensions('test.file.fastq.gz'),('fastq','gz'))
+    def test_get_file_extensions_for_hidden_files(self):
+        self.assertEqual(get_file_extensions('.test'),('',''))
+        self.assertEqual(get_file_extensions('.test.txt'),('txt',''))
 
 from arqvist.core import get_size
 class TestGetSize(unittest.TestCase):
