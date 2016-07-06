@@ -105,9 +105,9 @@ def main(args=None):
                 sys.stderr.write("\n-c: unsafe, some checksums missing\n")
                 sys.exit(1)
             attributes.append('md5')
-        deleted,modified,untracked = d.status(target_dir,
-                                              pathspec,
-                                              attributes)
+        deleted,modified,untracked,unreachable = d.status(target_dir,
+                                                          pathspec,
+                                                          attributes)
         if cmd == 'status':
             if not (deleted or modified or untracked):
                 print
@@ -142,6 +142,11 @@ def main(args=None):
                 print "Untracked files:"
                 for f in untracked:
                     cprint("\t%s" % f,BOLD+BLUE)
+            if unreachable:
+                print
+                print "Unreachable files:"
+                for f in unreachable:
+                    cprint("\t%s" % f,BOLD+RED)
         elif cmd == 'diff':
             if not (deleted or modified or untracked):
                 sys.exit(0)
@@ -160,7 +165,9 @@ def main(args=None):
                     cprint("new %s %s" % (attr,getattr(af,attr)),BOLD+RED)
     elif cmd == 'update':
         d = DirCache(dirn)
-        deleted,modified,untracked = d.status(dirn,pathspec,attributes)
+        deleted,modified,untracked,unreachable = d.status(dirn,
+                                                          pathspec,
+                                                          attributes)
         changed = (deleted or modified or untracked)
         if not d.exists:
             sys.stderr.write("%s: no cache on disk\n")

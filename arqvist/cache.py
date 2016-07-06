@@ -76,7 +76,7 @@ class DirCache(object):
     To get lists of the modified, new (aka 'untracked') or
     deleted files use the 'status' method, e.g.:
 
-    >>> delelted,modified,untracked = c.status()
+    >>> delelted,modified,untracked,unreachable = c.status()
 
     To update the cache in memory use the 'update' method;
     (note that the cache must then be explicitly rewritten to
@@ -145,7 +145,7 @@ class DirCache(object):
         """
         Check if the cache differs from reality
         """
-        d,m,u = self.status()
+        d,m,u,r = self.status()
         if d or m or u:
             return True
         return False
@@ -394,8 +394,8 @@ class DirCache(object):
         the ``dirn`` argument is explicitly specified then
         this directory is checked instead.
 
-        Returns a tuple of lists of deleted, modified and
-        untracked files.
+        Returns a tuple of lists of deleted, modified,
+        untracked and unreachable files.
 
         """
         if dirn is None:
@@ -403,13 +403,18 @@ class DirCache(object):
         deleted = []
         modified = []
         untracked = []
+        unreachable = []
         for f in self._walk(dirn):
             if self.ignore(f,dirn):
                 continue
             if pathspec and not self.pathspec(f,pathspec,dirn=dirn):
                 continue
+            relpath = os.path.relpath(f,dirn)
+            mode = str(ArchiveFile(f).mode)
+            if int(mode[1]) < 4:
+                unreachable.append(relpath)
+                continue
             try:
-                relpath = os.path.relpath(f,dirn)
                 cachefile = self[relpath]
                 if cachefile.compare(f,attributes):
                     modified.append(relpath)
@@ -420,7 +425,7 @@ class DirCache(object):
                 continue
             if not os.path.lexists(os.path.join(dirn,f)):
                 deleted.append(f)
-        return (deleted,modified,untracked)
+        return (deleted,modified,untracked,unreachable)
 
     def normalise_relpaths(self,paths,dirn=None,workdir=None,
                            abspaths=False):
