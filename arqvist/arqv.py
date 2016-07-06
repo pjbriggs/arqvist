@@ -80,6 +80,12 @@ def main(args=None):
     if cmd == 'init':
         d = DirCache(dirn,include_checksums=options.checksums)
         d.save()
+        dltd,mdfd,untrckd,unrchbl = d.status(dirn)
+        if unrchbl:
+            sys.stderr.write("\n%s: unreachable files found:\n" % dirn)
+            for f in unrchbl:
+                sys.stderr.write("\t%s\n" % f)
+            sys.exit(1)
     elif cmd == 'status' or cmd == 'diff':
         d = DirCache(dirn)
         if options.target_dir is None:
@@ -110,8 +116,10 @@ def main(args=None):
                                                           attributes)
         if cmd == 'status':
             if not (deleted or modified or untracked):
-                print
-                print "no differences compared to cache"
+                msg = "\nno differences compared to cache"
+                if unreachable:
+                    msg += " (but unreachable files found)"
+                print msg
             else:
                 if target_dir == d.dirn:
                     deleted = d.normalise_relpaths(deleted,
@@ -178,6 +186,12 @@ def main(args=None):
             d.update(pathspec,include_checksums=options.checksums)
             d.save()
             print "%s: cache updated" % dirn
+        deleted,modified,untracked,unreachable = d.status(dirn)
+        if unreachable:
+            sys.stderr.write("\n%s: unreachable files found:\n" % dirn)
+            for f in unreachable:
+                sys.stderr.write("\t%s\n" % f)
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()
