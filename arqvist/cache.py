@@ -284,7 +284,7 @@ class DirCache(object):
                    include_checksums=include_checksums)
         for f in self.files:
             filepath = os.path.join(self._dirn,f)
-            if not os.path.lexists(filepath):
+            if self.ignore(f) or not os.path.lexists(filepath):
                 print "%s: removing" % f
                 del(self._files[f])
             else:
