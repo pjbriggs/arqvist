@@ -61,6 +61,7 @@ class ArchiveFile(utils.PathInfo):
 
     - basename
     - type
+    - is_readable
     - classifier
 
     Methods:
@@ -101,6 +102,13 @@ class ArchiveFile(utils.PathInfo):
         elif self.is_file:
             return 'f'
         raise OSError("Unable to identify type for %s" % self.path)
+
+    @property
+    def is_readable(self):
+        """
+        Return True if mode allows read by current user
+        """
+        return os.access(self.path,os.R_OK)
 
     @property
     def md5(self):
